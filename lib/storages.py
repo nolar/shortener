@@ -33,6 +33,9 @@ class WrappedStorage(Storage):
     def fetch(self, id):
         return self.storage.fetch(self._wrap_id(id))
     
+    def repeat(self, fn, retries=1):
+        return self.storage.repeat(fn, retries)
+    
     def _wrap_id(self, id):
         if isinstance(id, basestring):
             return self.format % {'prefix': self.prefix, 'suffix': self.suffix, 'id': id }
@@ -118,7 +121,61 @@ class SdbStorage(Storage):
             #!!! handle when ids is an empty list - return empty result set
             items = list(self.domain.select('SELECT * FROM %s WHERE itemName() in (%s)' % (self.domain.name, ids_str)))
             return items
-
+    
+    @staticmethod
+    def repeat(fn, retries=1):
+        while retries > 0:
+            try:
+                retries = retries - 1
+                return fn()
+            except StorageExpectationError, e:
+                if retries <= 0:
+                    raise e
+    
+    
+    def update(self, id, callback, field=None, retries=1):
+        #!!!! make this algorythm clear and obvious and easily customizable
+        
+        self.connect()
+        while retries > 0:
+            retries = retries - 1
+            
+            try:
+                item = self.fetch(id)
+            except StorageItemAbsentError, e:
+                item = {}
+            old_value = item.get(field, None)
+            
+            item = callback(item) or item
+            
+            try:
+                expect = {field: old_value or False} if field else None
+                self.store(id, item, expect=expect)
+                
+                retries = 0 # just for the case if one will decide to remove return.
+                return id, item
+            except StorageExpectationError, e:
+                if retries <= 0:
+                    raise e
+    
+    def create(self, id_pattern, callback, retries=1):
+        #!!!! make this algorythm clear and obvious and easily customizable
+        
+        self.connect()
+        while retries > 0:
+            retries = retries - 1
+            
+            id = id_pattern() if callable(id_pattern) else id_pattern
+            item = callback()
+            
+            try:
+                self.store(id, item, unique=True)
+                retries = 0 # just for the case if one will decide to remove return.
+                return id, item
+            except StorageExpectationError, e:
+                if retries <= 0:
+                    raise e
+    
     def connect(self):
         if not self.connected:
             self.connection = SDBConnection(self.access_key, self.secret_key)

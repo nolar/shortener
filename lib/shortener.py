@@ -74,44 +74,98 @@ class Shortener(object):
         # these conflicts is to try to store, and see if that has succeded
         # (note that the generators should not know the purpose of the id and
         # cannot check for uniqueness by themselves; though that would not help).
-        while retries > 0:
-            try:
-                # Usual scenario: generate the id, try to store the item.
-                id = id_wanted or self.generator.generate()
-                if re.match(r'(^v\d+/) | (^/)', id, re.I | re.X):
-                    #!!!FIXME
-                    #??? "v"-starting sequences can be very long, we cannot just re-generate them here,
-                    #??? we must ask the generator not to try to create them, and fail in case of id_wanted.
-                    raise StorageExpectationError() # just to jump to the exception handler below
-                
-                self.urls.store(id, {
-                    'url': url,
-                    'create_ts': datetime.datetime.utcnow(),
-                    'remote_addr': remote_addr,
-                    'remote_port': remote_port,
-                }, unique=True)
-                
-                # Build the resulting url with the host requested and id generated.
-                shortened_url = ShortenedURL(self.host, id)
-                
-                # Notify the daemons that new url has born. Let them torture it a bit.
-                # They update the "last urls" and "top domains" structures, in particular.
-                # We do not do the updates here in web request, since we do not need the immediate effect.
-                #self.shortened_queue.push({'host': shortened_url.host, 'id': shortened_url.id})
-                self.update_stats(shortened_url)  # <-- in case of immediate action
-                
-                return shortened_url 
-                
-            except StorageExpectationError, e:
-                
-                # If we wanted to create the url with the very specific id, we cannot recover from this error.
-                if id_wanted:
-                    raise ShortenerIdExistsError("This id exists already, try another one.")
-                
-                # If we cannot save the item for too much tries, there is something wrong with the storage itself.
-                retries -= 1
-                if retries == 0:
-                    raise e
+        
+        #def callback_id():
+        #    id = id_wanted or self.generator.generate()
+        #    if re.match(r'(^v\d+/) | (^/)', id, re.I | re.X):
+        #        #!!!FIXME
+        #        #??? "v"-starting sequences can be very long, we cannot just re-generate them here,
+        #        #??? we must ask the generator not to try to create them, and fail in case of id_wanted.
+        #        raise StorageExpectationError() # just to jump to the exception handler below
+        #    return id
+        #
+        #def callback(old_item):
+        #    return {
+        #        'url': url,
+        #        'create_ts': datetime.datetime.utcnow(),
+        #        'remote_addr': remote_addr,
+        #        'remote_port': remote_port,
+        #    }
+        
+        def try_create():
+            # Usual scenario: generate the id, try to store the item.
+            id = id_wanted or self.generator.generate()
+            #if re.match(r'(^v\d+/) | (^/)', id, re.I | re.X):
+            #    #!!!FIXME
+            #    #??? "v"-starting sequences can be very long, we cannot just re-generate them here,
+            #    #??? we must ask the generator not to try to create them, and fail in case of id_wanted.
+            #    raise StorageExpectationError() # just to jump to the exception handler below
+            
+            item = {
+                'url': url,
+                'create_ts': datetime.datetime.utcnow(),
+                'remote_addr': remote_addr,
+                'remote_port': remote_port,
+            }
+            
+            self.urls.store(id, item, unique=True)
+            
+            return id, item
+        
+        #id, item = self.urls.alter(callback_id, 'id', callback, retries=retries)
+        #id, item = self.urls.create(callback_id, callback, retries=retries)
+        id, item = self.urls.repeat(try_create, retries=retries)
+        #!!! add the case for id_wanted specified: retries=1 and change exception type
+        
+        # Build the resulting url with the host requested and id generated.
+        shortened_url = ShortenedURL(self.host, id)#!!! add other info here from item
+        
+        # Notify the daemons that new url has born. Let them torture it a bit.
+        # They update the "last urls" and "top domains" structures, in particular.
+        # We do not do the updates here in web request, since we do not need the immediate effect.
+        #self.shortened_queue.push({'host': shortened_url.host, 'id': shortened_url.id})
+        self.update_stats(shortened_url)  # <-- in case of immediate action
+        
+        return shortened_url 
+        
+        #while retries > 0:
+        #    try:
+        #        # Usual scenario: generate the id, try to store the item.
+        #        id = id_wanted or self.generator.generate()
+        #        if re.match(r'(^v\d+/) | (^/)', id, re.I | re.X):
+        #            #!!!FIXME
+        #            #??? "v"-starting sequences can be very long, we cannot just re-generate them here,
+        #            #??? we must ask the generator not to try to create them, and fail in case of id_wanted.
+        #            raise StorageExpectationError() # just to jump to the exception handler below
+        #        
+        #        self.urls.store(id, {
+        #            'url': url,
+        #            'create_ts': datetime.datetime.utcnow(),
+        #            'remote_addr': remote_addr,
+        #            'remote_port': remote_port,
+        #        }, unique=True)
+        #        
+        #        # Build the resulting url with the host requested and id generated.
+        #        shortened_url = ShortenedURL(self.host, id)
+        #        
+        #        # Notify the daemons that new url has born. Let them torture it a bit.
+        #        # They update the "last urls" and "top domains" structures, in particular.
+        #        # We do not do the updates here in web request, since we do not need the immediate effect.
+        #        #self.shortened_queue.push({'host': shortened_url.host, 'id': shortened_url.id})
+        #        self.update_stats(shortened_url)  # <-- in case of immediate action
+        #        
+        #        return shortened_url 
+        #        
+        #    except StorageExpectationError, e:
+        #        
+        #        # If we wanted to create the url with the very specific id, we cannot recover from this error.
+        #        if id_wanted:
+        #            raise ShortenerIdExistsError("This id exists already, try another one.")
+        #        
+        #        # If we cannot save the item for too much tries, there is something wrong with the storage itself.
+        #        retries -= 1
+        #        if retries == 0:
+        #            raise e
     
     def update_stats(self, shortened_url):
         self.update_last_urls(shortened_url)
@@ -139,45 +193,75 @@ class Shortener(object):
         #!!!TODO: And in this case it is just the centralized generator, so on.
         #!!!TODO: The whole solution looks not very good.
         
-        # update the "last urls" lists (get url from the instance)
         bunch_size = 3
-        # Add new url to the last_urls structure and move the pointer if necessary.
-        retries = 5
-        while retries > 0:
+        def try_append():
+            #!!! Here the tricky thing is: we have two items to write here: pointer ^ bunch#N.
+            #!!! And we cannot do this atomically, so we emulate it... HOW? Is it reliable?
+            
             try:
-                #!!! Here the tricky thing is: we have two items to write here: pointer ^ bunch#N.
-                #!!! And we cannot do this atomically, so we emulate it... HOW? Is it reliable?
-                
-                try:
-                    pointer = self.last_urls_stats.fetch('pointer')
-                except StorageItemAbsentError, e:
-                    pointer = {'last_bunch': 0}
-                
-                last_bunch = pointer['last_bunch']
-                try:
-                    bunch = self.last_urls_stats.fetch('bunch_%s' % last_bunch)
-                except StorageItemAbsentError, e:
-                    bunch = {'items': ''}
-                
-                old_items = bunch['items']
-                items = filter(None, bunch['items'].split(':::'))
-                items.append(shortened_url.url)
-                
-                if len(items) >= bunch_size:
-                    next_bunch = unicode(int(last_bunch) + 1)
-                    self.last_urls_stats.store('pointer', {'last_bunch': next_bunch}, expect={'last_bunch':last_bunch or False})
-                
-                new_items = ':::'.join(items)
-                bunch['items'] = new_items
-                self.last_urls_stats.store('bunch_%s' % last_bunch, bunch, expect={'items':old_items or False})
-                #??? can we use multi-put in the storage? is it atomic? what about expecaations?
-                
-                retries = 0
-                
-            except StorageExpectationError, e:
-                retries -= 1
-                if retries <= 0:
-                    raise e
+                pointer = self.last_urls_stats.fetch('pointer')
+            except StorageItemAbsentError, e:
+                pointer = {'last_bunch': 0}
+            
+            last_bunch = int(pointer['last_bunch'])
+            try:
+                bunch = self.last_urls_stats.fetch('bunch_%s' % last_bunch)
+            except StorageItemAbsentError, e:
+                bunch = {'items': ''}
+            
+            old_items = bunch['items']
+            items = filter(None, bunch['items'].split(':::'))
+            items.append(shortened_url.url)
+            
+            new_items = ':::'.join(items)
+            bunch['items'] = new_items
+            self.last_urls_stats.store('bunch_%s' % last_bunch, bunch, expect={'items':old_items or False})
+            
+            if len(items) >= bunch_size:
+                next_bunch = last_bunch + 1
+                self.last_urls_stats.store('pointer', {'last_bunch': next_bunch}, expect={'last_bunch':last_bunch or False})
+        
+        self.last_urls_stats.repeat(try_append, retries=5)
+        
+        ## update the "last urls" lists (get url from the instance)
+        #bunch_size = 3
+        ## Add new url to the last_urls structure and move the pointer if necessary.
+        #retries = 5
+        #while retries > 0:
+        #    try:
+        #        #!!! Here the tricky thing is: we have two items to write here: pointer ^ bunch#N.
+        #        #!!! And we cannot do this atomically, so we emulate it... HOW? Is it reliable?
+        #        
+        #        try:
+        #            pointer = self.last_urls_stats.fetch('pointer')
+        #        except StorageItemAbsentError, e:
+        #            pointer = {'last_bunch': 0}
+        #        
+        #        last_bunch = pointer['last_bunch']
+        #        try:
+        #            bunch = self.last_urls_stats.fetch('bunch_%s' % last_bunch)
+        #        except StorageItemAbsentError, e:
+        #            bunch = {'items': ''}
+        #        
+        #        old_items = bunch['items']
+        #        items = filter(None, bunch['items'].split(':::'))
+        #        items.append(shortened_url.url)
+        #        
+        #        if len(items) >= bunch_size:
+        #            next_bunch = unicode(int(last_bunch) + 1)
+        #            self.last_urls_stats.store('pointer', {'last_bunch': next_bunch}, expect={'last_bunch':last_bunch or False})
+        #        
+        #        new_items = ':::'.join(items)
+        #        bunch['items'] = new_items
+        #        self.last_urls_stats.store('bunch_%s' % last_bunch, bunch, expect={'items':old_items or False})
+        #        #??? can we use multi-put in the storage? is it atomic? what about expecaations?
+        #        
+        #        retries = 0
+        #        
+        #    except StorageExpectationError, e:
+        #        retries -= 1
+        #        if retries <= 0:
+        #            raise e
     
     def get_last_urls(self, n):
         """
