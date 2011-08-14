@@ -4,17 +4,14 @@ from shortener.decorators import as_json, as_html, as_redirector
 from shortener.lib.shortener import Shortener
 from shortener.lib.storages import FakeStorage, WrappedStorage, SdbStorage
 from shortener.lib.generators import CentralizedGenerator
-from shortener.lib.daal import DAAL
 from django.conf import settings
 
 def make_shortener(request):
-    host=request.META.get('HTTP_HOST') #!!! or DEFAULT_HOST?
-    daal = DAAL(
-        sequences   = WrappedStorage(host+'_%s', SdbStorage(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, 'sequences')),
-        #generators = WrappedStorage(host+'_%s', SdbStorage(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, 'generators')),
-        urls        = WrappedStorage(host+'_%s', SdbStorage(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, 'urls')),
-    )
-    return Shortener(daal, host, generator=CentralizedGenerator(daal.sequences))
+    return Shortener(host=request.META.get('HTTP_HOST'), #!!! or DEFAULT_HOST?
+                    sequences   = SdbStorage(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, 'sequences' ),
+                    #generators = SdbStorage(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, 'generators'),
+                    urls        = SdbStorage(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, 'urls'      ),
+                    )
 
 @as_json
 @as_html('resolve.html')

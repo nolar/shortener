@@ -20,10 +20,12 @@ class Storage(object):
 
 
 class WrappedStorage(Storage):
-    def __init__(self, format, storage):
+    def __init__(self, storage, format='%(prefix)s%(id)s%(suffix)s', prefix='', suffix=''):
         super(WrappedStorage, self).__init__()
         self.storage = storage
         self.format = format
+        self.prefix = prefix
+        self.suffix = suffix
     
     def store(self, id, value, expect=None, unique=None):
         return self.storage.store(self._wrap_id(id), value, expect=expect, unique=unique)
@@ -32,7 +34,7 @@ class WrappedStorage(Storage):
         return self.storage.fetch(self._wrap_id(id))
     
     def _wrap_id(self, id):
-        return self.format % id
+        return self.format % {'prefix': self.prefix, 'suffix': self.suffix, 'id': id }
 
 
 class FakeStorage(Storage):

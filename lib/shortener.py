@@ -1,6 +1,7 @@
 # coding: utf-8
-from .generator import Generator
+from .generators import Generator, CentralizedGenerator, FakeGenerator
 from .storages import StorageUniquenessError, StorageItemAbsentError, StorageExpectationError
+from .storages import WrappedStorage
 import datetime
 import random
 
@@ -12,15 +13,24 @@ class Shortener(object):
     Methods for API.
     """
     
-    def __init__(self, daal, host, generator):
+    def __init__(self, host, sequences, urls):
         super(Shortener, self).__init__()
-        self.generator = generator
+        self.sequences = sequences
+        self.urls = urls
         self.host = host
-        self.daal = daal
+        
+        # Since shorteners for different hosts are isolated, wrap all the storages with hostname prefix.
+        #!!! be sure that host is NORMALIZED, i.e. "go.to:80"  === "go.to", to avoid unwatned errors.
+        #!!! probably, check with the list of available host domains in the config db.
+        if self.host:
+            self.sequences = WrappedStorage(self.sequences, prefix=self.host+'_')
+            self.urls      = WrappedStorage(self.urls     , prefix=self.host+'_')
+        
+        self.generator = generator=CentralizedGenerator(sequences)
     
     def resolve(self, id):
         try:
-            item = self.daal.urls.fetch(id)
+            item = self.urls.fetch(id)
             #todo later: we can add checks for moderation status here, etc.
             return item['url']
         except StorageItemAbsentError, e:
@@ -41,7 +51,7 @@ class Shortener(object):
             # This code will be executed until the first success or retries will expire.
             try:
                 id = id_wanted or self.generator.generate()
-                self.daal.urls.store(id, {
+                self.urls.store(id, {
                     'url': url,
                     'create_ts': datetime.datetime.utcnow(),
                     'remote_addr': remote_addr,
