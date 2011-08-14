@@ -32,7 +32,7 @@ def shorten_view(request):
                                     remote_port=request.META.get('REMOTE_PORT'))
     return {
         'long_url': long_url,
-        'short_url': short_url,
+        'short_url': short_url.url,
     }
 
 @as_json

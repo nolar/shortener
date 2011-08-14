@@ -8,6 +8,24 @@ import random
 class ShortenerIdAbsentError(Exception): pass
 class ShortenerIdExistsError(Exception): pass
 
+
+class ShortenedURL(object):
+    def __init__(self, host, id):
+        super(ShortenedURL, self).__init__()
+        self.host = host
+        self.id = id
+    
+    def __str__(self):
+        return self.url
+    
+    def __unicode__(self):
+        return self.url
+    
+    @property
+    def url(self):
+        return 'http://%s/%s' % (self.host, self.id)
+
+
 class Shortener(object):
     """
     Methods for API.
@@ -39,17 +57,19 @@ class Shortener(object):
     def shorten(self, url, id_wanted=None, retries=10, remote_addr=None, remote_port=None):
         """
         Shortens the url and saves it with the id requested or generated.
-        
-        In case if the id is generated and happens to exist already, this method
-        tries to generate it few more times. This is needed to avoid collisions
-        of manually requested ids with automatically generated ids, since this
-        cannot be done by the generator itself (it should not know the purpose
-        of the ids, nor if some of the ids are reserved or used explicitly).
+        Return the absolute url of the new url shortcut.
         """
         
+        # Despite that generator guaranties unique ids within that generator,
+        # there could be other urls stored already with this id. For example,
+        # if the url was stored with the manually specified id earlier; or if
+        # there was another generator algorythm before. The only way to catch
+        # these conflicts is to try to store, and see if that has succeded
+        # (note that the generators should not know the purpose of the id and
+        # cannot check for uniqueness by themselves; though that would not help).
         while retries > 0:
-            # This code will be executed until the first success or retries will expire.
             try:
+                # Usual scenario: generate the id, try to store the item.
                 id = id_wanted or self.generator.generate()
                 self.urls.store(id, {
                     'url': url,
@@ -57,10 +77,15 @@ class Shortener(object):
                     'remote_addr': remote_addr,
                     'remote_port': remote_port,
                 }, unique=True)
-                ##!!!!FIXME: url pattern should be generated or specified somewhere else
-                return 'http://%s/%s' % (self.host, id)
-            
-            # We handle only the "id exists" error here, to try few more times before failing.
+                
+                # Notify the daemons that new url has born. Let them torture it a bit.
+                # They update the "last urls" and "top domains" structures, in particular.
+                # We do not do the updates here in web request, since we do not need the immediate effect.
+                #self.shortened_queue.push((self.host, id))
+                
+                # Build the resulting url with the host requested and id generated.
+                return ShortenedURL(self.host, id)
+                
             except StorageExpectationError, e:
                 
                 # If we wanted to create the url with the very specific id, we cannot recover from this error.
