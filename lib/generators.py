@@ -84,25 +84,6 @@ class Sequence(object):
             return new_value
         
         return self.storage.repeat(try_increment, retries=self.retries)
-        
-        #return self.storage.alter(self.id, 'value', self.increment, retries=self.retries)
-        
-        #retries = self.retries
-        #while retries > 0:
-        #    try:
-        #        try:
-        #            item = self.storage.fetch(self.id)
-        #        except StorageItemAbsentError, e:
-        #            item = {}
-        #        
-        #        old_value = item.get('value', None)
-        #        new_value = self.increment(old_value)
-        #        self.storage.store(self.id, {'value': new_value}, expect={'value': old_value or False})
-        #        return new_value
-        #    except StorageExpectationError, e:
-        #        retries = retries - 1
-        #        if retries == 0:
-        #            raise e
     
     def increment(self, old_value):
         if old_value:

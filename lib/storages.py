@@ -33,8 +33,8 @@ class WrappedStorage(Storage):
     def fetch(self, id):
         return self.storage.fetch(self._wrap_id(id))
     
-    def repeat(self, fn, retries=1):
-        return self.storage.repeat(fn, retries)
+    def repeat(self, fn, retries=1, exception=None):
+        return self.storage.repeat(fn, retries, exception)
     
     def _wrap_id(self, id):
         if isinstance(id, basestring):
@@ -123,58 +123,17 @@ class SdbStorage(Storage):
             return items
     
     @staticmethod
-    def repeat(fn, retries=1):
+    def repeat(fn, retries=1, exception=None):
         while retries > 0:
             try:
                 retries = retries - 1
                 return fn()
             except StorageExpectationError, e:
                 if retries <= 0:
-                    raise e
-    
-    
-    def update(self, id, callback, field=None, retries=1):
-        #!!!! make this algorythm clear and obvious and easily customizable
-        
-        self.connect()
-        while retries > 0:
-            retries = retries - 1
-            
-            try:
-                item = self.fetch(id)
-            except StorageItemAbsentError, e:
-                item = {}
-            old_value = item.get(field, None)
-            
-            item = callback(item) or item
-            
-            try:
-                expect = {field: old_value or False} if field else None
-                self.store(id, item, expect=expect)
-                
-                retries = 0 # just for the case if one will decide to remove return.
-                return id, item
-            except StorageExpectationError, e:
-                if retries <= 0:
-                    raise e
-    
-    def create(self, id_pattern, callback, retries=1):
-        #!!!! make this algorythm clear and obvious and easily customizable
-        
-        self.connect()
-        while retries > 0:
-            retries = retries - 1
-            
-            id = id_pattern() if callable(id_pattern) else id_pattern
-            item = callback()
-            
-            try:
-                self.store(id, item, unique=True)
-                retries = 0 # just for the case if one will decide to remove return.
-                return id, item
-            except StorageExpectationError, e:
-                if retries <= 0:
-                    raise e
+                    if callable(exception):# includes types and classes
+                        raise exception(e) or e
+                    else:
+                        raise exception or e
     
     def connect(self):
         if not self.connected:
