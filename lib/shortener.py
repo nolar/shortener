@@ -31,11 +31,12 @@ class Shortener(object):
     Methods for API.
     """
     
-    def __init__(self, host, sequences, urls):
+    def __init__(self, host, sequences, urls, shortened_queue):
         super(Shortener, self).__init__()
         self.sequences = sequences
         self.urls = urls
         self.host = host
+        self.shortened_queue = shortened_queue
         
         # Since shorteners for different hosts are isolated, wrap all the storages with hostname prefix.
         #!!! be sure that host is NORMALIZED, i.e. "go.to:80"  === "go.to", to avoid unwatned errors.
@@ -81,7 +82,7 @@ class Shortener(object):
                 # Notify the daemons that new url has born. Let them torture it a bit.
                 # They update the "last urls" and "top domains" structures, in particular.
                 # We do not do the updates here in web request, since we do not need the immediate effect.
-                #self.shortened_queue.push((self.host, id))
+                self.shortened_queue.push({'host': self.host, 'id': id})
                 
                 # Build the resulting url with the host requested and id generated.
                 return ShortenedURL(self.host, id)

@@ -3,6 +3,7 @@ import datetime
 from shortener.decorators import as_json, as_html, as_redirector
 from shortener.lib.shortener import Shortener
 from shortener.lib.storages import FakeStorage, WrappedStorage, SdbStorage
+from shortener.lib.queues import SQSQueue
 from shortener.lib.generators import CentralizedGenerator
 from django.conf import settings
 
@@ -11,6 +12,7 @@ def make_shortener(request):
                     sequences   = SdbStorage(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, 'sequences' ),
                     #generators = SdbStorage(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, 'generators'),
                     urls        = SdbStorage(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, 'urls'      ),
+                    shortened_queue = SQSQueue(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, name='urls'),
                     )
 
 @as_json
