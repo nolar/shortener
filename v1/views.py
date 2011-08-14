@@ -1,19 +1,14 @@
 # Create your views here.
 import datetime
 from shortener.decorators import as_json, as_html, as_redirector
-from shortener.lib.shortener import Shortener
-from shortener.lib.storages import FakeStorage, WrappedStorage, SdbStorage
-from shortener.lib.queues import SQSQueue
-from shortener.lib.generators import CentralizedGenerator
+from shortener.lib.shortener import AWSShortener
 from django.conf import settings
 
 def make_shortener(request):
-    return Shortener(host=request.META.get('HTTP_HOST'), #!!! or DEFAULT_HOST?
-                    sequences   = SdbStorage(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, 'sequences' ),
-                    #generators = SdbStorage(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, 'generators'),
-                    urls        = SdbStorage(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, 'urls'      ),
-                    shortened_queue = SQSQueue(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, name='urls'),
-                    )
+    return AWSShortener(host=request.META.get('HTTP_HOST'), #!!! or DEFAULT_HOST?
+                        access_key = settings.AWS_ACCESS_KEY,
+                        secret_key = settings.AWS_SECRET_KEY,
+                        )
 
 @as_json
 @as_html('resolve.html')

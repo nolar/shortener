@@ -1,7 +1,8 @@
 # coding: utf-8
 from .generators import Generator, CentralizedGenerator, FakeGenerator
 from .storages import StorageUniquenessError, StorageItemAbsentError, StorageExpectationError
-from .storages import WrappedStorage
+from .storages import WrappedStorage, SdbStorage
+from .queues import SQSQueue
 import datetime
 import random
 
@@ -32,6 +33,9 @@ class Shortener(object):
     """
     
     def __init__(self, host, sequences, urls, shortened_queue):
+        #!!! add: last_urls_storage
+        #!!! add: top_domains_storage
+        
         super(Shortener, self).__init__()
         self.sequences = sequences
         self.urls = urls
@@ -72,6 +76,12 @@ class Shortener(object):
             try:
                 # Usual scenario: generate the id, try to store the item.
                 id = id_wanted or self.generator.generate()
+                if re.match(r'(^v\d+/) | (^/)', id, re.I | re.X):
+                    #!!!FIXME
+                    #??? "v"-starting sequences can be very long, we cannot just re-generate them here,
+                    #??? we must ask the generator not to try to create them, and fail in case of id_wanted.
+                    raise StorageExpectationError() # just to jump to the exception handler below
+                
                 self.urls.store(id, {
                     'url': url,
                     'create_ts': datetime.datetime.utcnow(),
@@ -104,3 +114,12 @@ class Shortener(object):
     def get_top_domains(self, td):
         raise NotImplemented()
 
+
+class AWSShortener(Shortener):
+    def __init__(self, access_key, secret_key, host):
+        super(AWSShortener, self).__init__(host,
+            sequences   = SdbStorage(access_key, secret_key, 'sequences' ),
+            #generators = SdbStorage(access_key, secret_key, 'generators'),
+            urls        = SdbStorage(access_key, secret_key, 'urls'      ),
+            shortened_queue = SQSQueue(access_key, secret_key, name='urls'),
+            )

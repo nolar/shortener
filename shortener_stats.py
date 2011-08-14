@@ -2,7 +2,7 @@ import sys
 import time
 from lib.queues import SQSQueue
 import settings
-from lib.shortener import Shortener
+from lib.shortener import Shortener, AWSShortener
 from lib.storages import SdbStorage
 
 class UrlMessage(object):
@@ -21,12 +21,10 @@ def main():
             continue
         
         print(item.host, item.id)
-        shortener = Shortener(host=item.host,
-                    sequences   = SdbStorage(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, 'sequences' ),
-                    #generators = SdbStorage(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, 'generators'),
-                    urls        = SdbStorage(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, 'urls'      ),
-                    shortened_queue = SQSQueue(settings.AWS_ACCESS_KEY, settings.AWS_SECRET_KEY, name='urls'),
-                    )
+        shortener = AWSShortener(host = item.host,
+                                access_key = settings.AWS_ACCESS_KEY,
+                                secret_key = settings.AWS_SECRET_KEY,
+                                )
         resolved = shortener.resolve(item.id)
         
         # update the "last urls" lists (get url from the instance)
