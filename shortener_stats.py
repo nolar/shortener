@@ -26,12 +26,7 @@ def main():
                                 secret_key = settings.AWS_SECRET_KEY,
                                 )
         resolved = shortener.resolve(item.id)
-        
-        # update the "last urls" lists (get url from the instance)
-        #!!!
-        
-        # update the "top domains" lists (using restored target url)
-        #!!!
+        shortener.update_stats(resolved)
         
         # delete the message from the queue
         queue.delete(item)

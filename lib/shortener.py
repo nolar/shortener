@@ -5,6 +5,7 @@ from .storages import WrappedStorage, SdbStorage
 from .queues import SQSQueue
 import datetime
 import random
+import re
 
 class ShortenerIdAbsentError(Exception): pass
 class ShortenerIdExistsError(Exception): pass
@@ -32,15 +33,14 @@ class Shortener(object):
     Methods for API.
     """
     
-    def __init__(self, host, sequences, urls, shortened_queue):
-        #!!! add: last_urls_storage
-        #!!! add: top_domains_storage
-        
+    def __init__(self, host, sequences, urls, shortened_queue, last_urls_stats, top_domains_stats):
         super(Shortener, self).__init__()
         self.sequences = sequences
         self.urls = urls
         self.host = host
         self.shortened_queue = shortened_queue
+        self.last_urls_stats  = last_urls_stats
+        self.top_domains_stats = top_domains_stats
         
         # Since shorteners for different hosts are isolated, wrap all the storages with hostname prefix.
         #!!! be sure that host is NORMALIZED, i.e. "go.to:80"  === "go.to", to avoid unwatned errors.
@@ -48,8 +48,10 @@ class Shortener(object):
         if self.host:
             self.sequences = WrappedStorage(self.sequences, prefix=self.host+'_')
             self.urls      = WrappedStorage(self.urls     , prefix=self.host+'_')
+            self.last_urls_stats = WrappedStorage(self.last_urls_stats, prefix=self.host+'_')
+            self.top_domains_stats  = WrappedStorage(self.top_domains_stats, prefix=self.host+'_')
         
-        self.generator = generator=CentralizedGenerator(sequences)
+        self.generator = CentralizedGenerator(sequences)
     
     def resolve(self, id):
         try:
@@ -89,13 +91,16 @@ class Shortener(object):
                     'remote_port': remote_port,
                 }, unique=True)
                 
+                # Build the resulting url with the host requested and id generated.
+                shortened_url = ShortenedURL(self.host, id)
+                
                 # Notify the daemons that new url has born. Let them torture it a bit.
                 # They update the "last urls" and "top domains" structures, in particular.
                 # We do not do the updates here in web request, since we do not need the immediate effect.
-                self.shortened_queue.push({'host': self.host, 'id': id})
+                #self.shortened_queue.push({'host': shortened_url.host, 'id': shortened_url.id})
+                self.update_stats(shortened_url)  # <-- in case of immediate action
                 
-                # Build the resulting url with the host requested and id generated.
-                return ShortenedURL(self.host, id)
+                return shortened_url 
                 
             except StorageExpectationError, e:
                 
@@ -108,10 +113,120 @@ class Shortener(object):
                 if retries == 0:
                     raise e
     
-    def get_last_urls(self, n):
-        raise NotImplemented()
+    def update_stats(self, shortened_url):
+        self.update_last_urls(shortened_url)
+        self.update_top_domains(shortened_url)
     
-    def get_top_domains(self, td):
+    def update_last_urls(self, shortened_url):
+        """
+        Updates the records for the last_urls statistics by adding the specified
+        shortened url there.
+        
+        WARNING:
+        This routine works with centralized data items using locks or conditional
+        writes, which can and will cause the slowdowns and bottlenecks under load.
+        It should be called from background daemons only, not from the web requests.
+        """
+        
+        # Implementation details:
+        # Since we store the list of last urls in batches of fixed size,
+        # and a pointer to the last batch, so to add an item to the stats we need
+        # to find that last batch and append the item to it. In case the batch
+        # is fulfilled (size limit is reached), move the pointer to the next empty
+        # batch.
+        #!!!TODO: Why the batches? This is not a timeline-based algorythm,
+        #!!!TODO: we can store them sequentally one-by-one, as if batch_size=1.
+        #!!!TODO: And in this case it is just the centralized generator, so on.
+        #!!!TODO: The whole solution looks not very good.
+        
+        # update the "last urls" lists (get url from the instance)
+        bunch_size = 3
+        # Add new url to the last_urls structure and move the pointer if necessary.
+        retries = 5
+        while retries > 0:
+            try:
+                #!!! Here the tricky thing is: we have two items to write here: pointer ^ bunch#N.
+                #!!! And we cannot do this atomically, so we emulate it... HOW? Is it reliable?
+                
+                try:
+                    pointer = self.last_urls_stats.fetch('pointer')
+                except StorageItemAbsentError, e:
+                    pointer = {'last_bunch': 0}
+                
+                last_bunch = pointer['last_bunch']
+                try:
+                    bunch = self.last_urls_stats.fetch('bunch_%s' % last_bunch)
+                except StorageItemAbsentError, e:
+                    bunch = {'items': ''}
+                
+                old_items = bunch['items']
+                items = filter(None, bunch['items'].split(':::'))
+                items.append(shortened_url.url)
+                
+                if len(items) >= bunch_size:
+                    next_bunch = unicode(int(last_bunch) + 1)
+                    self.last_urls_stats.store('pointer', {'last_bunch': next_bunch}, expect={'last_bunch':last_bunch or False})
+                
+                new_items = ':::'.join(items)
+                bunch['items'] = new_items
+                self.last_urls_stats.store('bunch_%s' % last_bunch, bunch, expect={'items':old_items or False})
+                #??? can we use multi-put in the storage? is it atomic? what about expecaations?
+                
+                retries = 0
+                
+            except StorageExpectationError, e:
+                retries -= 1
+                if retries <= 0:
+                    raise e
+    
+    def get_last_urls(self, n):
+        """
+        Returns the last N urls added for this specific shortener host domain.
+        There is not statistics for global shortener urls, but it can be added
+        easily (just remove the wrapping aroung last_urls storage).
+        """
+        
+        # Implementation details:
+        # Since we store all the urls added in separate batches of fixed size,
+        # and shift a pointer to the last batch, so to get N last urls we need
+        # to read this pointer, and then to read fixed amount of batches from
+        # the last bunch backward (can be done in one single storage request).
+        # So we have only two(!) reads for the whole request: pointer & batches.
+        
+        # Read the pointers to the latest batch and the latest item. If the list
+        # will change between we have read the pointers and the batches, we will
+        # ignore those changes, since we have the very precise pointer to the item.
+        try:
+            pointer = self.last_urls_stats.fetch('pointer')
+            last_bunch = int(pointer.get('last_bunch', 0))
+            last_count = int(pointer.get('last_count', 0))#??? ignore? is it needed?
+        except StorageItemAbsentError, e:
+            last_bunch = 0
+            last_count = 0#???? ignored? is it needed?
+        
+        # Calculate amount and indexes of the bunches we are going to read.
+        bunch_size = 3
+        bunch_count = (n / bunch_size) + (1 if n % bunch_size else 0) + 1
+        first_bunch = max(0, last_bunch - bunch_count + 1)
+        
+        # Read the bunches with multi-get operation of the storage.
+        bunch_ids = ['bunch_%s' % i for i in range(first_bunch, last_bunch+1)]
+        bunches = self.last_urls_stats.fetch(bunch_ids)
+        
+        # Merge the urls into one single list, then cut extra items.
+        last_items = []
+        for bunch in bunches:
+            bunch_items = bunch['items'].split(':::')
+            last_items.extend(bunch_items)#!!! check for propert order/sorting
+        last_items = last_items[-n:]
+        return last_items
+    
+    def update_top_domains(self, shortened_url):
+        # update the "top domains" lists (using restored target url)
+        #!!!
+        pass
+    
+    def get_top_domains(self, timedelta):
         raise NotImplemented()
 
 
@@ -122,4 +237,6 @@ class AWSShortener(Shortener):
             #generators = SdbStorage(access_key, secret_key, 'generators'),
             urls        = SdbStorage(access_key, secret_key, 'urls'      ),
             shortened_queue = SQSQueue(access_key, secret_key, name='urls'),
+            last_urls_stats = SdbStorage(access_key, secret_key, 'last_urls'),
+            top_domains_stats = SdbStorage(access_key, secret_key, 'top_domains'),
             )

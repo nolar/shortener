@@ -34,7 +34,10 @@ class WrappedStorage(Storage):
         return self.storage.fetch(self._wrap_id(id))
     
     def _wrap_id(self, id):
-        return self.format % {'prefix': self.prefix, 'suffix': self.suffix, 'id': id }
+        if isinstance(id, basestring):
+            return self.format % {'prefix': self.prefix, 'suffix': self.suffix, 'id': id }
+        else:
+            return [self._wrap_id(i) for i in id]
 
 
 class FakeStorage(Storage):
@@ -104,10 +107,17 @@ class SdbStorage(Storage):
     
     def fetch(self, id):
         self.connect()
-        item = self.domain.get_attributes(id, consistent_read=True)
-        if not item:
-            raise StorageItemAbsentError("The item '%s' is not found." % id)
-        return item
+        if isinstance(id, basestring):
+            item = self.domain.get_attributes(id, consistent_read=True)
+            if not item:
+                raise StorageItemAbsentError("The item '%s' is not found." % id)
+            return item
+        else:
+            ids = id
+            ids_str = ','.join(["'%s'" % id for id in ids])#!!!! ad normal escaping
+            #!!! handle when ids is an empty list - return empty result set
+            items = list(self.domain.select('SELECT * FROM %s WHERE itemName() in (%s)' % (self.domain.name, ids_str)))
+            return items
 
     def connect(self):
         if not self.connected:
