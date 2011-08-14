@@ -1,8 +1,8 @@
 # coding: utf-8
 from .generator import Generator
-from .datalayer import UrlStorage, UrlItem
-from .datalayer import StorageItemExists, StorageItemAbsent
+from .storages import StorageUniquenessError, StorageItemAbsentError, StorageExpectationError
 import datetime
+import random
 
 class ShortenerIdAbsentError(Exception): pass
 class ShortenerIdExistsError(Exception): pass
@@ -12,21 +12,21 @@ class Shortener(object):
     Methods for API.
     """
     
-    def __init__(self, host, storage):
+    def __init__(self, daal, host, generator):
         super(Shortener, self).__init__()
-        self.generator = Generator()
-        self.storage = storage
+        self.generator = generator
         self.host = host
+        self.daal = daal
     
     def resolve(self, id):
         try:
-            item = self.storage.fetch_url(self.host, id)
+            item = self.daal.urls.fetch(id)
             #todo later: we can add checks for moderation status here, etc.
-            return item.url
-        except StorageItemAbsent, e:
+            return item['url']
+        except StorageItemAbsentError, e:
             raise ShortenerIdAbsentError("Such url does not exist.")
     
-    def shorten(self, url, id_wanted=None, retries=3, remote_addr=None, remote_port=None):
+    def shorten(self, url, id_wanted=None, retries=10, remote_addr=None, remote_port=None):
         """
         Shortens the url and saves it with the id requested or generated.
         
@@ -41,13 +41,17 @@ class Shortener(object):
             # This code will be executed until the first success or retries will expire.
             try:
                 id = id_wanted or self.generator.generate()
-                item = UrlItem(url, create_ts=datetime.datetime.utcnow(), remote_addr=remote_addr, remote_port=remote_port)
-                self.storage.store_url(self.host, id, item)
+                self.daal.urls.store(id, {
+                    'url': url,
+                    'create_ts': datetime.datetime.utcnow(),
+                    'remote_addr': remote_addr,
+                    'remote_port': remote_port,
+                }, unique=True)
                 ##!!!!FIXME: url pattern should be generated or specified somewhere else
                 return 'http://%s/%s' % (self.host, id)
             
             # We handle only the "id exists" error here, to try few more times before failing.
-            except StorageItemExists, e:
+            except StorageExpectationError, e:
                 
                 # If we wanted to create the url with the very specific id, we cannot recover from this error.
                 if id_wanted:
