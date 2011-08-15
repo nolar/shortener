@@ -78,6 +78,6 @@ class Shortener(object):
         # Notify the daemons that new url has born. Let them torture it a bit.
         # They update the "last urls" and "top domains" structures, in particular.
         # We do not do the updates here in web request, since we do not need the immediate effect.
-        #self.shortened_queue.push({'host': shortened_url.host, 'id': shortened_url.id})
-        self.statistics.update(shortened_url)
+        self.shortened_queue.push({'host': shortened_url.host, 'id': shortened_url.id})
+        #self.statistics.update(shortened_url)
 

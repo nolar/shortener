@@ -13,7 +13,7 @@ class URL(object):
         self.host = host
         self.id = id
         self.url = url
-        self.created_ts = created_ts
+        self.created_ts = float(created_ts) if created_ts is not None else created_ts
         self.remote_addr = remote_addr
         self.remote_port = remote_port
         #??? optionally, if something left in kwargs, probably this is an error/warning?

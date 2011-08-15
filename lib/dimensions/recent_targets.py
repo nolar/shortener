@@ -27,13 +27,11 @@ class RecentTargetsDimension(Dimension):
         It should be called from background daemons only, not from the web requests.
         """
         
-        def try_append():
-            timestamp = int(time.time() * 1000000)
-            item = dict(shortened_url)
-            item['timestamp'] = timestamp
-            key = 'item_%s_%s' % (shortened_url.host, shortened_url.id) # does no matter actually, but must be unique
-            self.storage.store(key, item, unique=True)
-        self.storage.repeat(try_append, retries=10)
+        timestamp = int(time.time() * 1000000)
+        item = dict(shortened_url)
+        item['timestamp'] = timestamp
+        key = 'item_%s_%s' % (shortened_url.host, shortened_url.id) # does no matter actually, but must be unique
+        self.storage.store(key, item)
     
     def retrieve(self, n):
         """

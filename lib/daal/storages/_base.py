@@ -29,3 +29,12 @@ class Storage(object):
                         raise exception(e) or e
                     else:
                         raise exception or e
+    
+    @staticmethod
+    def ignore(fn, retries=1, exception=None):
+            try:
+                retries = retries - 1
+                return fn()
+                #??? move self.store() here? just to ensure that it tries to store at all, and to make it meaningful.
+            except StorageExpectationError, e:
+                pass

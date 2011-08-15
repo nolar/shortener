@@ -5,11 +5,11 @@ All views and daemons use these pre-configured classes (or factories) only
 to access the data stored in the system. No other classes except these ones!
 """
 
-from shortener.lib.shortener import Shortener
-from shortener.lib.analytics import Analytics
-from shortener.lib.dimensions import RecentTargetsDimension, PopularDomainsDimension
-from shortener.lib.daal.storages import SDBStorage, WrapperStorage
-from shortener.lib.daal.queues import SQSQueue
+from lib.shortener import Shortener
+from lib.analytics import Analytics
+from lib.dimensions import RecentTargetsDimension, PopularDomainsDimension
+from lib.daal.storages import SDBStorage, WrapperStorage
+from lib.daal.queues import SQSQueue
 from django.conf import settings
 
 
