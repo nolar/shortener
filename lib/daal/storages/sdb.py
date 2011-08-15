@@ -58,7 +58,7 @@ class SDBStorage(Storage):
                 items.extend(self.domain.select(query))
             return items
     
-    def select(self, columns=None, where=None, order=None, limit=None):
+    def query(self, columns=None, where=None, order=None, limit=None):
         self.connect()
         query = ''
         query +=  'SELECT %s' % (','.join(columns) if columns else '*')

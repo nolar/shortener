@@ -20,8 +20,8 @@ class WrapperStorage(Storage):
     def repeat(self, fn, retries=1, exception=None):
         return self.storage.repeat(fn, retries, exception)
     
-    def select(self, columns=None, where=None, order=None, limit=None):
-        return self.storage.select(columns, where, order, limit)
+    def query(self, columns=None, where=None, order=None, limit=None):
+        return self.storage.query(columns, where, order, limit)
     
     def _wrap_id(self, id):
         if isinstance(id, basestring):
