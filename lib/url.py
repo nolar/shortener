@@ -18,6 +18,7 @@ class URL(dict):
         self.remote_port = remote_port
         #??? optionally, if something left in kwargs, probably this is an error/warning?
         self.update(self.__dict__)
+        self.update(shortcut=self.shortcut)#!!! overrides the property, FIXME
         #??? add generated shirtcut here too?
     
     def __str__(self):

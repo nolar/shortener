@@ -22,22 +22,23 @@ def resolve(request):
     if not id: raise ValueError("ID must be specified to be resolved.")
     
     shortener = make_shortener(request)
+    shortened = shortener.resolve(id)
     return {
-        'resolved': dict(shortener.resolve(id)),
+        'shortened': dict(shortened),
     }
 
 @as_json
 @as_html('v1/shorten.html')
 def shorten(request):
+    url = request.GET.get('url', None)
+    if not url: raise ValueError("URL is required.")
+    
     shortener = make_shortener(request)
-    long_url = request.GET.get('url', None)
-    short_url = shortener.shorten(long_url,
+    shortened = shortener.shorten(url,
                                     remote_addr=request.META.get('REMOTE_ADDR'),
                                     remote_port=request.META.get('REMOTE_PORT'))
     return {
-        'id': short_url.id,
-        'url': short_url.url,
-        'shortcut': short_url.shortcut,
+        'shortened': dict(shortened),
     }
 
 @as_json
