@@ -23,7 +23,7 @@ class AWSShortener(Shortener):
             #generators = WrapperStorage(SDBStorage(access_key, secret_key, 'generators'), prefix=host+'_'),
             urls        = WrapperStorage(SDBStorage(access_key, secret_key, 'urls'      ), prefix=host+'_'),
             shortened_queue = SQSQueue(access_key, secret_key, name='urls'),
-            statistics = AWSAnalytics(access_key, secret_key, host),
+            analytics = AWSAnalytics(access_key, secret_key, host),
             )
 
 

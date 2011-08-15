@@ -13,13 +13,13 @@ class Shortener(object):
     Methods for API.
     """
     
-    def __init__(self, host, sequences, urls, shortened_queue, statistics):
+    def __init__(self, host, sequences, urls, shortened_queue, analytics):
         super(Shortener, self).__init__()
         self.sequences = sequences
         self.urls = urls
         self.host = host
         self.shortened_queue = shortened_queue
-        self.statistics = statistics
+        self.analytics = analytics
         self.generator = CentralizedGenerator(sequences)
     
     def resolve(self, id):
@@ -69,15 +69,11 @@ class Shortener(object):
         shortened_url = self.urls.repeat(try_create, retries=retries if not id_wanted else 1,
                                     exception=lambda e: ShortenerIdExistsError("This id exists already, try another one.") if id_wanted else None)
         
-        # Notify the stats that a new url has been born. Let them torture it a bit.
-        self.update_stats(shortened_url)
-        
-        return shortened_url 
-    
-    def update_stats(self, shortened_url):
-        # Notify the daemons that new url has born. Let them torture it a bit.
+        # Notify the analytics that a new url has been born. Let them torture it a bit.
         # They update the "last urls" and "top domains" structures, in particular.
         # We do not do the updates here in web request, since we do not need the immediate effect.
         self.shortened_queue.push({'host': shortened_url.host, 'id': shortened_url.id})
-        #self.statistics.update(shortened_url)
+        #self.analytics.update(shortened_url)
+        
+        return shortened_url 
 

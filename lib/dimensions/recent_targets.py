@@ -18,7 +18,7 @@ class RecentTargetsDimension(Dimension):
     
     def update(self, shortened_url):
         """
-        Updates the records for the last_urls statistics by adding the specified
+        Updates the records for the last_urls analytics by adding the specified
         shortened url there.
         
         WARNING:
@@ -36,7 +36,7 @@ class RecentTargetsDimension(Dimension):
     def retrieve(self, n):
         """
         Returns the last N urls added for this specific shortener host domain.
-        There is not statistics for global shortener urls, but it can be added
+        There is not analytics for global shortener urls, but it can be added
         easily (just remove the wrapping aroung last_urls storage).
         """
         items = self.storage.query(where="timestamp > ''", order="timestamp desc", limit=n)
