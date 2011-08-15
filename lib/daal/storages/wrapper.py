@@ -21,6 +21,9 @@ class WrapperStorage(Storage):
         return self.storage.repeat(fn, retries, exception)
     
     def query(self, columns=None, where=None, order=None, limit=None):
+        #!!! itemName() is an internal implementation detail of SDBStorage only, not a wrapper
+        addon = "itemName() like '%s%%'" % (self.prefix)#!!! escape
+        where = "(%s) AND (%s)" % (where, addon) if where else "(%s)" % (addon)
         return self.storage.query(columns, where, order, limit)
     
     def _wrap_id(self, id):
