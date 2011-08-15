@@ -1,0 +1,12 @@
+<pre>
+Here are the most recent URLs added with the links to resolve and follow them:
+
+{% for url in urls %}
+<a href="{{url.shortcut|escape}}">{{url.shortcut|escape}}</a>  ==> <a href="{{url.url|escape}}">{{url.url|escape}}</a>{% endfor %}
+
+You can also see other stats:
+* <a href="popular_domains.html?count=10&days=30">popular domains</a>
+
+Or you can return to the <a href="/">intro page</a>.
+
+</pre>

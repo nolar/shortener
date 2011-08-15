@@ -9,7 +9,7 @@ def as_json(fn):
         result = fn(request, *args, **kwargs)
         if isinstance(result, HttpResponse):
             return result
-        elif '.json' in request.path:
+        elif request.path.endswith('.json'):
             content = json.dumps(result, indent=4)
             return HttpResponse(content, mimetype='text/plain')#!!! mimetype is for manual debugging
         else:

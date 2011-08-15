@@ -58,5 +58,5 @@ class PopularDomainsDimension(Dimension):
         flat = combined.items()
         flat.sort(lambda a,b: cmp(a[1], b[1]), reverse=True)
         tops = flat[:n]
+        tops = [dict(domain=domain, count=count) for domain, count in tops]
         return tops
-        return [x[0] for x in tops]

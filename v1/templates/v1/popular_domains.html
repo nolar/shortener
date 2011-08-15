@@ -1,0 +1,12 @@
+<pre>
+Here are the most popular domains for the last days:
+
+{% for domain in domains %}
+{{domain.domain|escape}}   [{{domain.count|escape}} records]{% endfor %}
+
+You can also see other stats:
+* <a href="recent_targets.html?count=100">recent targets</a>
+
+Or you can return to the <a href="/">intro page</a>.
+
+</pre>

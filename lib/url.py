@@ -1,6 +1,6 @@
 # coding: utf-8
 
-class URL(object):
+class URL(dict):
     """
     Represent an URL item being handled in the system. It is not able to restore
     its state and has no access to any storages, etc, so as it does not know how
@@ -17,6 +17,8 @@ class URL(object):
         self.remote_addr = remote_addr
         self.remote_port = remote_port
         #??? optionally, if something left in kwargs, probably this is an error/warning?
+        self.update(self.__dict__)
+        #??? add generated shirtcut here too?
     
     def __str__(self):
         return self.shortcut

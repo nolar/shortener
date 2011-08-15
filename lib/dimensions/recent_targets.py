@@ -1,5 +1,6 @@
 # coding: utf-8
 from ..daal.storages import StorageUniquenessError, StorageItemAbsentError, StorageExpectationError
+from ..url import URL
 from ._base import Dimension
 import datetime
 import time
@@ -40,7 +41,10 @@ class RecentTargetsDimension(Dimension):
         easily (just remove the wrapping aroung last_urls storage).
         """
         items = self.storage.query(where="timestamp > ''", order="timestamp desc", limit=n)
-        return items[:n] #TODO: return as list of URL instances?
+        items = items[:n]
+        #TODO: return as list of URL instances?
+        items = [URL(**item) for item in items]
+        return items
     
     def maintain(self):
         #!!!todo: purge old items, determine the best timedelta to keep MAX_N items at least

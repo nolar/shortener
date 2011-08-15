@@ -7,6 +7,7 @@ import re
 
 class ShortenerIdAbsentError(Exception): pass
 class ShortenerIdExistsError(Exception): pass
+class ShortenerBadUrlError(Exception): pass
 
 class Shortener(object):
     """
@@ -36,6 +37,9 @@ class Shortener(object):
         Return the absolute url of the new url shortcut.
         """
         
+        if '://' not in url or len(url) > 8*1024:
+            raise ShortenerBadUrlError("URL is not an URL?")
+        
         # Despite that generator guaranties unique ids within that generator,
         # there could be other urls stored already with this id. For example,
         # if the url was stored with the manually specified id earlier; or if
@@ -43,7 +47,6 @@ class Shortener(object):
         # these conflicts is to try to store, and see if that has succeded
         # (note that the generators should not know the purpose of the id and
         # cannot check for uniqueness by themselves; though that would not help).
-        
         def try_create():
             # Usual scenario: generate the id, try to store the item.
             id = id_wanted or self.generator.generate()
