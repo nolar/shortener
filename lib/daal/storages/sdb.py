@@ -32,7 +32,7 @@ class SDBStorage(Storage):
         
         self.connect()
         try:
-            value['id'] = id
+            #value['id'] = id
             self.domain.put_attributes(id, value, expected_value=expect)
         except SDBResponseError, e:
             if e.code == 'ConditionalCheckFailed':
@@ -57,6 +57,16 @@ class SDBStorage(Storage):
                 query = 'SELECT * FROM %s WHERE itemName() in (%s)' % (self.domain.name, ids_str)
                 items.extend(self.domain.select(query))
             return items
+    
+    def select(self, columns=None, where=None, order=None, limit=None):
+        self.connect()
+        query = ''
+        query +=  'SELECT %s' % (','.join(columns) if columns else '*')
+        query +=  ' FROM  %s' % (self.domain.name)
+        query += (' WHERE %s'    % where) if where else ''
+        query += (' ORDER BY %s' % order) if order else ''
+        query += (' LIMIT %s'    % limit) if limit else ''
+        return list(self.domain.select(query))
     
     def connect(self):
         if not self.connected:

@@ -20,6 +20,9 @@ class WrapperStorage(Storage):
     def repeat(self, fn, retries=1, exception=None):
         return self.storage.repeat(fn, retries, exception)
     
+    def select(self, columns=None, where=None, order=None, limit=None):
+        return self.storage.select(columns, where, order, limit)
+    
     def _wrap_id(self, id):
         if isinstance(id, basestring):
             return self.format % {'prefix': self.prefix, 'suffix': self.suffix, 'id': id }
