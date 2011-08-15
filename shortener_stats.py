@@ -3,7 +3,7 @@ import time
 from lib.queues import SQSQueue
 import settings
 from lib.shortener import Shortener, AWSShortener
-from lib.storages import SdbStorage
+from lib.storages import SDBStorage
 from lib.url import URL
 
 class UrlMessage(object):

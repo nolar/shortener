@@ -1,5 +1,5 @@
 # coding: utf-8
-from .storages import StorageExpectationError, StorageItemAbsentError
+from .daal.storages import StorageExpectationError, StorageItemAbsentError
 
 
 class DepletedError(Exception): pass

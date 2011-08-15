@@ -1,30 +1,21 @@
-# Create your views here.
+# coding: utf-8
 import datetime
-from shortener.decorators import as_json, as_html, as_redirector
-from shortener.lib.shortener import AWSShortener
-from shortener.lib.statistics import AWSStats
-from django.conf import settings
-
-from shortener.lib.statistics import Stats, LastUrls, TopDomains
-from shortener.lib.storages import SdbStorage
+from .decorators import as_json, as_html, as_redirector
+from .setup import make_analytics, make_shortener
 
 
-def make_shortener(request):
-    return AWSShortener(host=request.META.get('HTTP_HOST'), #!!! or DEFAULT_HOST?
-                        access_key = settings.AWS_ACCESS_KEY,
-                        secret_key = settings.AWS_SECRET_KEY,
-                        )
-
-def make_stats(request):
-    return AWSStats(host=request.META.get('HTTP_HOST'), #!!! or DEFAULT_HOST?
-                    access_key = settings.AWS_ACCESS_KEY,
-                    secret_key = settings.AWS_SECRET_KEY,
-                    )
+@as_redirector()
+def redirect(request, id):
+    shortener = make_shortener(request)
+    resolved = shortener.resolve(id)
+    return resolved.url
 
 @as_json
 @as_html('resolve.html')
-@as_redirector('url')
-def resolve_view(request, id):
+def resolve(request):
+    id = request.GET.get('id', None)
+    if not id: raise ValueError("ID must be specified to be resolved.")
+    
     shortener = make_shortener(request)
     return {
         'resolved': dict(shortener.resolve(id)),
@@ -32,7 +23,7 @@ def resolve_view(request, id):
 
 @as_json
 @as_html('shorten.html')
-def shorten_view(request):
+def shorten(request):
     shortener = make_shortener(request)
     long_url = request.GET.get('url', None)
     short_url = shortener.shorten(long_url,
@@ -45,19 +36,28 @@ def shorten_view(request):
 
 @as_json
 @as_html('last_urls.html')
-def last_urls_view(request, n):
-    stats = make_stats(request)
+def analytics_recent_targets(request):
+    count = int(request.GET.get('count', 100))
+    if count <= 0: raise ValueError("Count must be positive integer.")
+    
+    analytics = make_analytics(request)
     return {
-        'number': int(n),
-        'urls': stats.last_urls.retrieve(int(n)),
+        'count': count,
+        'urls': analytics.recent_targets.retrieve(count),
     }
 
 @as_json
 @as_html('top_domains.html')
-def top_domains_view(request):
-    stats = make_stats(request)
+def analytics_popular_domains(request):
+    count = int(request.GET.get('count', 10))
+    if count <= 0: raise ValueError("Count must be positive integer.")
+    
+    days = int(request.GET.get('days', 30))
+    if days <= 0: raise ValueError("Days must be positive integer.")
+    
+    analytics = make_analytics(request)
     return {
-        'days': 30,
-        'number': 10,
-        'domains': stats.top_domains.retrieve(10, datetime.timedelta(days=30)),
+        'days': days,
+        'count': count,
+        'domains': analytics.popular_domains.retrieve(count, datetime.timedelta(days=days)),
     }

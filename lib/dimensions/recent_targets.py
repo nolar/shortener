@@ -1,45 +1,16 @@
 # coding: utf-8
-from .storages import StorageUniquenessError, StorageItemAbsentError, StorageExpectationError
-from .storages import WrappedStorage, SdbStorage
+from ..daal.storages import StorageUniquenessError, StorageItemAbsentError, StorageExpectationError
+from ._base import Dimension
 import datetime
 import time
 import random
 import re
 import urlparse
 
-
-class Stats(object):
-    def __init__(self, **kwargs):
-        super(Stats, self).__init__()
-        self.__dict__.update(kwargs)
-        self.stats = kwargs.values()
-    
-    def update(self, shortened_url):
-        for stat in self.stats:
-            stat.update(shortened_url)
+__all__ = ['RecentTargetsDimension']
 
 
-class AWSStats(Stats):
-    def __init__(self, access_key, secret_key, host):
-        super(AWSStats, self).__init__(
-            last_urls   = LastUrls  (host, SdbStorage(access_key, secret_key, 'last_urls'  )),
-            top_domains = TopDomains(host, SdbStorage(access_key, secret_key, 'top_domains')),
-        )
-
-
-
-class Statistics(object):
-    def __init__(self, host, storage):
-        super(Statistics, self).__init__()
-        self.storage = storage
-        self.host = host
-        
-        #TODO: repeating ourselves as in Shortener. Where to move wrapping responsivility to?
-        if self.host:
-            self.storage = WrappedStorage(self.storage, prefix=self.host+'_')
-
-
-class LastUrls(Statistics):
+class RecentTargetsDimension(Dimension):
     def update(self, shortened_url):
         """
         Updates the records for the last_urls statistics by adding the specified
@@ -135,52 +106,3 @@ class LastUrls(Statistics):
         return last_items
 
 
-class TopDomains(Statistics):
-    def update(self, shortened_url):
-        # update the "top domains" lists (using restored target url)
-        #!!!
-        
-        domain = urlparse.urlparse(shortened_url.url).hostname#!!! catch parsing errors?
-        slicesize = 12*60*60 # 12hr (maybe try 2d?)
-        timeslice = int(shortened_url.created_ts / slicesize) * slicesize
-        slice_key = 'timeslice_%s' % (timeslice)
-        
-        def try_append():
-            try:
-                slice = self.storage.fetch(slice_key)
-            except StorageItemAbsentError, e:
-                slice = {}
-            
-            old_count = int(slice.get(domain, 0))
-            slice[domain] = old_count + 1
-            
-            self.storage.store(slice_key, slice, expect={domain:old_count or False})
-            
-        self.storage.repeat(try_append, retries=3)
-    
-    def retrieve(self, n, timedelta):
-        
-        slicesize = 12*60*60 # 12hr (maybe try 2d?)
-        slice_now = int(time.time() / slicesize) * slicesize
-        seconds_to_past = int(timedelta.days * 24*60*60 + timedelta.seconds)
-        slice_past = int((time.time() - seconds_to_past) / slicesize) * slicesize
-        
-        slice_ids = ['timeslice_%s' % timeslice for timeslice in xrange(slice_past, slice_now+1, slicesize)]
-        
-        slices = self.storage.fetch(slice_ids)
-        
-        # Combine all the slices to one single dictionary.
-        combined = {}
-        for slice in slices:
-            for domain, count in slice.items():
-                if domain != 'id': #!!! bad idea to store some unexpected values
-                    combined[domain] = combined.get(domain, 0) + int(count)
-        
-        # Get top N domains from the combine dictionary.
-        #!!!TODO: the algorythm could be merged with the combine cycle, to drop low values on the go.
-        #!!!FIXME: with hunders and thousands of domains this sort will be hard to do.
-        flat = combined.items()
-        flat.sort(lambda a,b: cmp(a[1], b[1]), reverse=True)
-        tops = flat[:n]
-        return tops
-        return [x[0] for x in tops]

@@ -9,7 +9,7 @@ def as_json(fn):
         result = fn(request, *args, **kwargs)
         if isinstance(result, HttpResponse):
             return result
-        elif '/json/' in request.path:
+        elif '.json' in request.path:
             content = json.dumps(result, indent=4)
             return HttpResponse(content, mimetype='text/plain')#!!! mimetype is for manual debugging
         else:
@@ -30,7 +30,7 @@ def as_html(view):
         return decorated
     return decorator
 
-def as_redirector(field):
+def as_redirector(field=None):
     def decorator(fn):
         @functools.wraps(fn)
         def decorated(request, *args, **kwargs):
@@ -38,11 +38,10 @@ def as_redirector(field):
             if isinstance(result, HttpResponse):
                 return result
             else:
-                value = result.get(field, None)
-                if value is not None and isinstance(value, basestring):
-                    return HttpResponseRedirect(value)
+                if result is not None and isinstance(result, basestring):
+                    return HttpResponseRedirect(result)
                 else:
-                    raise ValueError("Trying to redirect to a non-url.")
+                    raise ValueError("Trying to redirect to a non-url (%s)." % repr(result))
         return decorated
     return decorator
 

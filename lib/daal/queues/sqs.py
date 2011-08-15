@@ -1,22 +1,11 @@
-
-
-class Queue(object):
-    def __init__(self):
-        super(Queue, self).__init__()
-    
-    def push(self, item):
-        raise NotImplemented()
-    
-    def pull(self):
-        raise NotImplemented()
-    
-    def delete(self, item):
-        raise NotImplemented()
-
-
+# coding: utf-8
+from ._base import Queue
 from boto.sqs.connection import SQSConnection
 from boto.sqs.message import Message
 import json
+
+__all__ = ['SQSQueue']
+
 
 class SQSQueue(Queue):
     def __init__(self, access_key, secret_key, region=None, name=None):

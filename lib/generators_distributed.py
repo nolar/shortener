@@ -1,5 +1,9 @@
 # coding: utf-8
 
+!!!
+!!! This is not functional yet. Just a concepts of how to avoid centralized generator.
+!!!
+
 class Generator(object):
     """
     Instances of this class are able to produce the ids for the urls. IDs are

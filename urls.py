@@ -7,13 +7,13 @@ from django.conf.urls.defaults import patterns, include, url
 from django.views.defaults import page_not_found
 
 urlpatterns = patterns('',
-    # V1 API call:
-    url(r'^v1/json/resolve/(.+)$', 'shortener.v1.views.resolve_view'),
-    url(r'^v1/json/shorten/$', 'shortener.v1.views.shorten_view'),
-    url(r'^v1/json/last/(\d+)/$', 'shortener.v1.views.last_urls_view'),
-    url(r'^v1/json/top/$', 'shortener.v1.views.top_domains_view'),
+    # Version 1.*.* API call:
+    url(r'^v1/resolve.json$', 'shortener.v1.views.resolve'),
+    url(r'^v1/shorten.json$', 'shortener.v1.views.shorten'),
+    url(r'^v1/analytics/recent_targets.json$' , 'shortener.v1.views.analytics_recent_targets' ),
+    url(r'^v1/analytics/popular_domains.json$', 'shortener.v1.views.analytics_popular_domains'),
     url(r'^v1/', 'django.views.defaults.page_not_found'),
     
     # Univertal catcher for encoded urls (non-versioned, thus universal):
-    url(r'(.+)$', 'shortener.v1.views.resolve_view'),
+    url(r'(.+)$', 'shortener.v1.views.redirect'),
 )

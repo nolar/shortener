@@ -1,9 +1,6 @@
 # coding: utf-8
+from .daal.storages import StorageUniquenessError, StorageItemAbsentError, StorageExpectationError
 from .generators import Generator, CentralizedGenerator, FakeGenerator
-from .storages import StorageUniquenessError, StorageItemAbsentError, StorageExpectationError
-from .storages import WrappedStorage, SdbStorage
-from .statistics import AWSStats
-from .queues import SQSQueue
 from .url import URL
 import time
 import re
@@ -23,14 +20,6 @@ class Shortener(object):
         self.host = host
         self.shortened_queue = shortened_queue
         self.statistics = statistics
-        
-        # Since shorteners for different hosts are isolated, wrap all the storages with hostname prefix.
-        #!!! be sure that host is NORMALIZED, i.e. "go.to:80"  === "go.to", to avoid unwatned errors.
-        #!!! probably, check with the list of available host domains in the config db.
-        if self.host:
-            self.sequences = WrappedStorage(self.sequences, prefix=self.host+'_')
-            self.urls      = WrappedStorage(self.urls     , prefix=self.host+'_')
-        
         self.generator = CentralizedGenerator(sequences)
     
     def resolve(self, id):
@@ -92,13 +81,3 @@ class Shortener(object):
         #self.shortened_queue.push({'host': shortened_url.host, 'id': shortened_url.id})
         self.statistics.update(shortened_url)
 
-
-class AWSShortener(Shortener):
-    def __init__(self, access_key, secret_key, host):
-        super(AWSShortener, self).__init__(host,
-            sequences   = SdbStorage(access_key, secret_key, 'sequences' ),
-            #generators = SdbStorage(access_key, secret_key, 'generators'),
-            urls        = SdbStorage(access_key, secret_key, 'urls'      ),
-            shortened_queue = SQSQueue(access_key, secret_key, name='urls'),
-            statistics = AWSStats(access_key, secret_key, host),
-            )
