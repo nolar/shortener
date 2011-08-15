@@ -181,7 +181,7 @@ class Sequence(object):
             except StorageExpectError, e:
                 retries = retries - 1
                 if retries == 0:
-                    raise e
+                    raise
     
     def increment(self, old_value):
         border = 1
@@ -261,7 +261,7 @@ class DNode(object):
             except StorageExpectationError, e:
                 retries -= 1
                 if retries <= 0:
-                    raise e
+                    raise
     
     def populate(self):
         #while True:#??? or until the len(children) < desired_children_count
@@ -290,7 +290,7 @@ class DistributedNode(object):
                 return sequence.generate()
             except DepletedError, e:
                 # pass-throu the exception to the parent; maybe change the type
-                raise e
+                raise
         else:
             #select one randomly (weighted)
             child_id = children[random.rand(0, len(children))]

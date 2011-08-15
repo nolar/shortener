@@ -38,7 +38,7 @@ class SDBStorage(Storage):
             if e.code == 'ConditionalCheckFailed':
                 raise StorageExpectationError("Storage expecation failed.")
             else:
-                raise e
+                raise
     
     def fetch(self, id):
         self.connect()

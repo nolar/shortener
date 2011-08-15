@@ -26,9 +26,12 @@ class Storage(object):
             except StorageExpectationError, e:
                 if retries <= 0:
                     if callable(exception):# includes types and classes
-                        raise exception(e) or e
+                        exception = exception(e)
+                    
+                    if exception:
+                        raise exception
                     else:
-                        raise exception or e
+                        raise
     
     @staticmethod
     def ignore(fn, retries=1, exception=None):
