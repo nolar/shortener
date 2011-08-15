@@ -1,10 +1,9 @@
 import sys
 import time
-from lib.queues import SQSQueue
 import settings
-from lib.shortener import Shortener, AWSShortener
-from lib.storages import SDBStorage
-from lib.url import URL
+from lib.daal.queues import SQSQueue
+from v1.setup import AWSAnalytics, AWSShortener
+
 
 class UrlMessage(object):
     def __init__(self, data):
@@ -29,11 +28,11 @@ def main():
                                 )
         resolved = shortener.resolve(item.id)
         
-        stats = AWSStats(host = item.host,
-                        access_key = settings.AWS_ACCESS_KEY,
-                        secret_key = settings.AWS_SECRET_KEY,
-                        )
-        stats.update_stats(resolved)
+        analytics = AWSAnalytics(host = item.host,
+                                access_key = settings.AWS_ACCESS_KEY,
+                                secret_key = settings.AWS_SECRET_KEY,
+                                )
+        analytics.update(resolved)
         
         # delete the message from the queue
         queue.delete(item)
