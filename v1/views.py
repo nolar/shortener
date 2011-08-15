@@ -47,5 +47,6 @@ def top_domains_view(request):
     shortener = make_shortener(request)
     return {
         'days': 30,
-        'domains': shortener.get_top_domains(datetime.timedelta(days=30)),
+        'number': 10,
+        'domains': shortener.get_top_domains(10, datetime.timedelta(days=30)),
     }

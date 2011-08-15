@@ -4,18 +4,22 @@ from .storages import StorageUniquenessError, StorageItemAbsentError, StorageExp
 from .storages import WrappedStorage, SdbStorage
 from .queues import SQSQueue
 import datetime
+import time
 import random
 import re
+import urlparse
 
 class ShortenerIdAbsentError(Exception): pass
 class ShortenerIdExistsError(Exception): pass
 
 
 class ShortenedURL(object):
-    def __init__(self, host, id):
+    def __init__(self, host, id, source_url, created_ts):
         super(ShortenedURL, self).__init__()
         self.host = host
         self.id = id
+        self.source_url = source_url
+        self.created_ts = created_ts
     
     def __str__(self):
         return self.url
@@ -86,7 +90,7 @@ class Shortener(object):
             
             item = {
                 'url': url,
-                'create_ts': datetime.datetime.utcnow(),
+                'create_ts': time.time(),
                 'remote_addr': remote_addr,
                 'remote_port': remote_port,
             }
@@ -100,7 +104,7 @@ class Shortener(object):
                                     exception=lambda e: ShortenerIdExistsError("This id exists already, try another one.") if id_wanted else None)
         
         # Build the resulting url with the host requested and id generated.
-        shortened_url = ShortenedURL(self.host, id)#!!! add other info here from item
+        shortened_url = ShortenedURL(self.host, id, url, time.time())#!!! add other info here from item
         
         # Notify the daemons that new url has born. Let them torture it a bit.
         # They update the "last urls" and "top domains" structures, in particular.
@@ -211,10 +215,51 @@ class Shortener(object):
     def update_top_domains(self, shortened_url):
         # update the "top domains" lists (using restored target url)
         #!!!
-        pass
+        
+        domain = urlparse.urlparse(shortened_url.source_url).hostname#!!! catch parsing errors?
+        slicesize = 12*60*60 # 12hr (maybe try 2d?)
+        timeslice = int(shortened_url.created_ts / slicesize) * slicesize
+        slice_key = 'timeslice_%s' % (timeslice)
+        
+        def try_append():
+            try:
+                slice = self.top_domains_stats.fetch(slice_key)
+            except StorageItemAbsentError, e:
+                slice = {}
+            
+            old_count = int(slice.get(domain, 0))
+            slice[domain] = old_count + 1
+            
+            self.top_domains_stats.store(slice_key, slice, expect={domain:old_count or False})
+            
+        self.top_domains_stats.repeat(try_append, retries=3)
     
-    def get_top_domains(self, timedelta):
-        raise NotImplemented()
+    def get_top_domains(self, n, timedelta):
+        
+        slicesize = 12*60*60 # 12hr (maybe try 2d?)
+        slice_now = int(time.time() / slicesize) * slicesize
+        seconds_to_past = int(timedelta.days * 24*60*60 + timedelta.seconds)
+        slice_past = int((time.time() - seconds_to_past) / slicesize) * slicesize
+        
+        slice_ids = ['timeslice_%s' % timeslice for timeslice in xrange(slice_past, slice_now+1, slicesize)]
+        
+        slices = self.top_domains_stats.fetch(slice_ids)
+        
+        # Combine all the slices to one single dictionary.
+        combined = {}
+        for slice in slices:
+            for domain, count in slice.items():
+                if domain != 'id': #!!! bad idea to store some unexpected values
+                    combined[domain] = combined.get(domain, 0) + int(count)
+        
+        # Get top N domains from the combine dictionary.
+        #!!!TODO: the algorythm could be merged with the combine cycle, to drop low values on the go.
+        #!!!FIXME: with hunders and thousands of domains this sort will be hard to do.
+        flat = combined.items()
+        flat.sort(lambda a,b: cmp(a[1], b[1]), reverse=True)
+        tops = flat[:n]
+        return tops
+        return [x[0] for x in tops]
 
 
 class AWSShortener(Shortener):

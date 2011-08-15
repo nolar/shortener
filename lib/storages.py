@@ -116,10 +116,14 @@ class SdbStorage(Storage):
                 raise StorageItemAbsentError("The item '%s' is not found." % id)
             return item
         else:
-            ids = id
-            ids_str = ','.join(["'%s'" % id for id in ids])#!!!! ad normal escaping
             #!!! handle when ids is an empty list - return empty result set
-            items = list(self.domain.select('SELECT * FROM %s WHERE itemName() in (%s)' % (self.domain.name, ids_str)))
+            ids = id
+            items = []
+            for i in xrange(0, len(ids) / 20 + 1):
+                ids_slice = ids[i*20:(i+1)*20]
+                ids_str = ','.join(["'%s'" % id for id in ids_slice])#!!!! ad normal escaping
+                query = 'SELECT * FROM %s WHERE itemName() in (%s)' % (self.domain.name, ids_str)
+                items.extend(self.domain.select(query))
             return items
     
     @staticmethod
