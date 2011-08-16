@@ -28,6 +28,7 @@ def main():
             # delete the message from the queue
             queue.delete(item)
         except Exception, e:
+            print('=' * 80)
             traceback.print_exc()
 
 
