@@ -7,6 +7,9 @@ from boto.sdb.connection import SDBConnection
 __all__ = ['SDBStorage']
 
 class SDBStorage(Storage):
+    """
+    Stores all information in Amazon SimpleDB. Tries to work around its limitations.
+    """
     
     def __init__(self, access_key, secret_key, domain_name):
         super(SDBStorage, self).__init__()
@@ -18,6 +21,14 @@ class SDBStorage(Storage):
         self.domain = None
 
     def store(self, id, value, expect=None, unique=None):
+        """
+        Stores one single item with its id. Supports atomic conditional writes:
+        * Item must be unique, i.e. raise an error if exists (usually checked by `id` field).
+        * Item must meet the condition by one of its fields being equal to specific value.
+        If conditional write fails, the storage raises expectation error.
+        See Storage.repeat() on how to work with this technique.
+        """
+        
         if unique is not None and expect is not None:
             raise ValueError("Only expect or exists parameter maybe passed, not both.")
         elif expect is not None:
@@ -30,7 +41,7 @@ class SDBStorage(Storage):
         else:
             expect = None
         
-        self.connect()
+        self._connect()
         try:
             split = self._split(value)
             #split['id'] = id
@@ -42,7 +53,13 @@ class SDBStorage(Storage):
                 raise
     
     def fetch(self, id):
-        self.connect()
+        """
+        Fetches one or many items by ids. If id is a string, one item is fetched,
+        otherwise id is treated as a sequence of ids and all of them are fetched.
+        Actual fetch goes in batches of 20 items per requests (SimpleDB limitation).
+        """
+        
+        self._connect()
         if isinstance(id, basestring):
             item = self.domain.get_attributes(id, consistent_read=True)
             if not item:
@@ -62,7 +79,7 @@ class SDBStorage(Storage):
             return items
     
     def query(self, columns=None, where=None, order=None, limit=None):
-        self.connect()
+        self._connect()
         query = ''
         query +=  'SELECT %s' % (','.join(columns) if columns else '*')
         query +=  ' FROM  %s' % (self.domain.name)
@@ -72,6 +89,13 @@ class SDBStorage(Storage):
         return [self._rejoin(item) for item in self.domain.select(query)]
     
     def _split(self, value):
+        """
+        Prepares the item for storage by splitting long attributes into pieces
+        of smaller ones (SimpleDB limit of 1024 chars per attribute).
+        Another way os to store these data in S3, but since it is usually an URL
+        with predictable size, why involve one more subsystem?
+        """
+        
         split = {}
         for key, val in value.items():
             val = unicode(val)
@@ -84,6 +108,13 @@ class SDBStorage(Storage):
         return split
     
     def _rejoin(self, item):
+        """
+        Restores the item from storage by joinede all split attributes back
+        from pieces into single values (SimpleDB limit of 1024 chars per attribute).
+        Another way os to store these data in S3, but since it is usually an URL
+        with predictable size, why involve one more subsystem?
+        """
+        
         joined = {}
         for key, val in item.items():
             if '#' in key:
@@ -99,7 +130,12 @@ class SDBStorage(Storage):
                 joined[key] = ''.join([text for index, text in sorted(val.items(), cmp=lambda a,b:cmp(a[0],b[0]))])
         return joined
 
-    def connect(self):
+    def _connect(self):
+        """
+        Connects to the storage if not connected yet.
+        If already connected, does nothing.
+        """
+        
         if not self.connected:
             self.connection = SDBConnection(self.access_key, self.secret_key)
             try:
