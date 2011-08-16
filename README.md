@@ -1,6 +1,6 @@
 ## ABOUT
 
-Yet another URL shortener, which is going to safe internet traffic and energy consumption.
+Yet another URL shortener, which is going to save internet traffic costs and energy consumption.
 
 
 ## FEATURES
