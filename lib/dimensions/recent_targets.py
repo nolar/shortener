@@ -8,24 +8,30 @@ import random
 import re
 import urlparse
 
+
 __all__ = ['RecentTargetsDimension']
 
 
 class RecentTargetsDimension(Dimension):
     """
-    This analytics dimension collects the information on the latest items (urls)
-    added to the system, and provides the most recent N of them.
+    Analytics dimension for gathering the most recent items (urls) added.
+    
+    The information is stored as a flat log of items, where each item is marked
+    with timestamp when it was created (up to microseconds). The timestamp is
+    used for sorting the items before retrieving N most recent of them.
+    
+    Also, the timestamp is used in the ids of the items in the log, though this
+    is not required. It is just a good start for unique item id for the storage
+    across all the processes, and the items are never referred by these log ids.
+    
+    Over the time, maintainance daemon removes the old items from this log to
+    keep the queries fast.
     """
     
     def update(self, shortened_url):
         """
-        Updates the records for the last_urls analytics by adding the specified
-        shortened url there.
-        
-        WARNING:
-        This routine works with centralized data items using locks or conditional
-        writes, which can and will cause the slowdowns and bottlenecks under load.
-        It should be called from background daemons only, not from the web requests.
+        Updates the records for the recent targets analytics by adding the
+        specified shortened url.
         """
         
         timestamp = int(time.time() * 1000000)
