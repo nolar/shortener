@@ -1,11 +1,11 @@
 ## ABOUT
 
-Yet another URL shortener, which is going to save internet traffic costs and energy consumption.
+Yet another URL shortener, which is going to save internet traffic costs and world-wide energy consumption.
 
 
 ## FEATURES
 
-* Multi-domain hosted, with each domain isolated from the other, but sharing the infrastructure.
+* Multi-domain hosted, with each domain isolated from the others, but sharing the infrastructure.
 * HTML and JSON APIs (HTML is for quick try, see below).
 * Supposed to handle really heavy traffic: with distributed ID generators (not completely implemented),
   de-centralized counter and storages, background analytics processing, etc.
