@@ -2,6 +2,14 @@
 from .daal.storages import StorageExpectationError, StorageItemAbsentError
 import re
 
+LOWERS = 'abcdefghijklmnopqrstuvwxyz'
+UPPERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+DIGITS = '0123456789'
+SPECIAL = '$-_.+!*\'(),' # these characters are safe for HTTP schema, thoug may be it recognized by highlighters.
+SCHEMAS = ';&/:=@' # these characters in HTTP schema may be risky, since they are part of the schema.
+ALPHABET = ''.join([LOWERS, UPPERS, DIGITS, SPECIAL, SCHEMAS])
+
+
 class DepletedError(Exception): pass
 
 
@@ -50,24 +58,17 @@ class CentralizedGenerator(Generator):
     or write-expect'ing algorythms, being a bottleneck.
     """
     
-    def __init__(self, storage, id='centralized', prohibit=None):
+    def __init__(self, storage, id='centralized', letters=None, prohibit=None):
         super(CentralizedGenerator, self).__init__()
         self.storage = storage
         self.id = id
+        self.letters = letters
         self.prohibit = prohibit
     
     def generate(self):
-        result = Sequence(self.storage, self.id, prohibit=self.prohibit).generate()
+        result = Sequence(self.storage, self.id, letters=self.letters, prohibit=self.prohibit).generate()
         return result
 
-
-LOWERS = 'abcdefghijklmnopqrstuvwxyz'
-UPPERS = 'abcdefghijklmnopqrstuvwxyz'.upper()
-DIGITS = '0123456789'
-SPECIAL = '$-_.+!*\'(),' # these characters are safe for HTTP schema, thoug may be it recognized by highlighters
-SCHEMAS = ';&/:=@' # using of these characters in HTTP schema may be risky
-
-ALPHABET = ''.join([LOWERS, UPPERS, DIGITS, SPECIAL, SCHEMAS])
 
 class Sequence(object):
     def __init__(self, storage, id, min_length=None, max_length=None, letters=None, retries=3, prohibit=None):
