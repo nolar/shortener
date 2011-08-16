@@ -4,10 +4,19 @@ from ._base import Storage
 __all__ = ['WrapperStorage']
 
 class WrapperStorage(Storage):
-    def __init__(self, storage, format='%(prefix)s%(id)s%(suffix)s', prefix='', suffix=''):
+    """
+    Wrapper storage is a namespace isolation layer, which proxies all calls to the
+    wrapped storage, but changes the IDs to contain the namespace specified.
+    The namespace is a set of prefix & suffix for the id. Note that this wrapper
+    storage does not affect a domain name, and does not know about such a thing.
+    
+    TODO: Namespace is called "host" here for project-specific reason, but will be renamed later.
+    """
+    
+    def __init__(self, storage, prefix='', suffix=''):
         super(WrapperStorage, self).__init__()
         self.storage = storage
-        self.format = format
+        self.format = '%(prefix)s%(id)s%(suffix)s'
         self.prefix = prefix
         self.suffix = suffix
     
@@ -16,9 +25,6 @@ class WrapperStorage(Storage):
     
     def fetch(self, id):
         return self.storage.fetch(self._wrap_id(id))
-    
-    def repeat(self, fn, retries=1, exception=None):
-        return self.storage.repeat(fn, retries, exception)
     
     def query(self, columns=None, where=None, order=None, limit=None):
         #!!! itemName() is an internal implementation detail of SDBStorage only, not a wrapper

@@ -8,17 +8,22 @@ __all__ = ['SDBStorage']
 
 class SDBStorage(Storage):
     """
-    Stores all information in Amazon SimpleDB. Tries to work around its limitations.
+    Stores all information in Amazon SimpleDB.
+    
+    Tries to work around some of its limitations to keep the whole semantics:
+    * Limit on number of predicates in WHERE IN query for multi-id fetch (20 max).
+    * Limit on the lenght of an attribute (1024 chars max).
+    * Others to come.
     """
     
-    def __init__(self, access_key, secret_key, domain_name):
+    def __init__(self, access_key, secret_key, name):
         super(SDBStorage, self).__init__()
-        self.domain_name = domain_name
         self.access_key = access_key
         self.secret_key = secret_key
         self.connected = False
         self.connection = None
         self.domain = None
+        self.name = name
 
     def store(self, id, value, expect=None, unique=None):
         """
@@ -52,7 +57,7 @@ class SDBStorage(Storage):
             else:
                 raise
     
-    def fetch(self, id):
+    def fetch(self, id_or_ids):
         """
         Fetches one or many items by ids. If id is a string, one item is fetched,
         otherwise id is treated as a sequence of ids and all of them are fetched.
@@ -60,25 +65,35 @@ class SDBStorage(Storage):
         """
         
         self._connect()
-        if isinstance(id, basestring):
+        if isinstance(id_or_ids, basestring):
+            id = id_or_ids
             item = self.domain.get_attributes(id, consistent_read=True)
             if not item:
                 raise StorageItemAbsentError("The item '%s' is not found." % id)
             item = self._rejoin(item)
             return item
         else:
-            #!!! handle when ids is an empty list - return empty result set
-            ids = id
+            ids = id_or_ids
             items = []
+            #??? is there any itertools function to iterate the batches?
             for i in xrange(0, len(ids) / 20 + 1):
                 ids_slice = ids[i*20:(i+1)*20]
-                ids_str = ','.join(["'%s'" % id for id in ids_slice])#!!!! ad normal escaping
-                query = 'SELECT * FROM %s WHERE itemName() in (%s)' % (self.domain.name, ids_str)
-                for item in self.domain.select(query):
-                    items.append(self._rejoin(item))
+                if ids_slice:
+                    ids_str = ','.join(["'%s'" % id for id in ids_slice])#!!!! ad normal escaping
+                    query = 'SELECT * FROM %s WHERE itemName() in (%s)' % (self.domain.name, ids_str)
+                    for item in self.domain.select(query):
+                        items.append(self._rejoin(item))
             return items
     
     def query(self, columns=None, where=None, order=None, limit=None):
+        """
+        Builds and executes the SQL-like query to the storage.
+        
+        TODO: query() is highly unwanted in key-value storages, since it introduces
+        TODO: very complexed overhead to the semantics of the class. Try to remove it.
+        TODO: As of now, it is used in analytics dimensions only.
+        """
+        
         self._connect()
         query = ''
         query +=  'SELECT %s' % (','.join(columns) if columns else '*')
@@ -129,18 +144,17 @@ class SDBStorage(Storage):
             if isinstance(val, dict):
                 joined[key] = ''.join([text for index, text in sorted(val.items(), cmp=lambda a,b:cmp(a[0],b[0]))])
         return joined
-
+    
     def _connect(self):
         """
         Connects to the storage if not connected yet.
         If already connected, does nothing.
         """
-        
         if not self.connected:
             self.connection = SDBConnection(self.access_key, self.secret_key)
             try:
-                self.domain = self.connection.get_domain(self.domain_name)
+                self.domain = self.connection.get_domain(self.name)
             except SDBResponseError:
-                self.domain = self.connection.create_domain(self.domain_name)
+                self.domain = self.connection.create_domain(self.name)
             self.connected = True
         return self
