@@ -1,1 +1,10 @@
-You've got an error :`-(
+You've got an error :`-(    <br/>
+
+{% if exception %}
+    This is sad, but here we have something as a hint:<br/>
+    <b>{{ exception|escape }}</b><br/>
+    If this hint didn't help, well... Send us a report.
+{% else %}
+    What is more sad, there is no brief info what happened.<br/>
+    Probably, this is a good time to send a message to us.<br/>
+{% endif %}
