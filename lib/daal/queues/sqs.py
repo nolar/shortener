@@ -6,7 +6,10 @@ import json
 
 __all__ = ['SQSQueue']
 
+class SQSItem(dict):
+    pass
 
+    
 class SQSQueue(Queue):
     def __init__(self, access_key, secret_key, region=None, name=None):
         super(SQSQueue, self).__init__()
@@ -33,7 +36,7 @@ class SQSQueue(Queue):
         self.connect()
         self.queue.write(message)
     
-    def pull(self, timeout=10, factory=lambda x:x):
+    def pull(self, timeout=10, factory=SQSItem):
         self.connect()
         message = self.queue.read(timeout)
         if message is not None:
@@ -42,8 +45,9 @@ class SQSQueue(Queue):
             item = factory(data)
             
             # Mark for futher deletion, but do not refer to it from ouselves (for garbage collectors).
-            item.__dict__['_queue_'] = self.queue
-            item.__dict__['_message_'] = message
+            if item is not None:
+                item.__dict__['_queue_'] = self.queue
+                item.__dict__['_message_'] = message
             
             return item
         else:
