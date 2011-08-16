@@ -32,8 +32,9 @@ class SDBStorage(Storage):
         
         self.connect()
         try:
-            #value['id'] = id
-            self.domain.put_attributes(id, value, expected_value=expect)
+            split = self._split(value)
+            #split['id'] = id
+            self.domain.put_attributes(id, split, expected_value=expect)
         except SDBResponseError, e:
             if e.code == 'ConditionalCheckFailed':
                 raise StorageExpectationError("Storage expecation failed.")
@@ -46,6 +47,7 @@ class SDBStorage(Storage):
             item = self.domain.get_attributes(id, consistent_read=True)
             if not item:
                 raise StorageItemAbsentError("The item '%s' is not found." % id)
+            item = self._rejoin(item)
             return item
         else:
             #!!! handle when ids is an empty list - return empty result set
@@ -55,7 +57,8 @@ class SDBStorage(Storage):
                 ids_slice = ids[i*20:(i+1)*20]
                 ids_str = ','.join(["'%s'" % id for id in ids_slice])#!!!! ad normal escaping
                 query = 'SELECT * FROM %s WHERE itemName() in (%s)' % (self.domain.name, ids_str)
-                items.extend(self.domain.select(query))
+                for item in self.domain.select(query):
+                    items.append(self._rejoin(item))
             return items
     
     def query(self, columns=None, where=None, order=None, limit=None):
@@ -66,8 +69,36 @@ class SDBStorage(Storage):
         query += (' WHERE %s'    % where) if where else ''
         query += (' ORDER BY %s' % order) if order else ''
         query += (' LIMIT %s'    % limit) if limit else ''
-        return list(self.domain.select(query))
+        return [self._rejoin(item) for item in self.domain.select(query)]
     
+    def _split(self, value):
+        split = {}
+        for key, val in value.items():
+            val = unicode(val)
+            if len(val) <= 1024:
+                split[key] = val
+            else:
+                val = unicode(val)
+                for i in range(0, len(val)+1, 1024):
+                    split[key+'#'+unicode(i)] = val[i:i+1024]
+        return split
+    
+    def _rejoin(self, item):
+        joined = {}
+        for key, val in item.items():
+            if '#' in key:
+                key_base, key_index = key.split('#', 1)
+                key_index = int(key_index)
+                if key_base not in joined:
+                    joined[key_base] = {}
+                joined[key_base][key_index] = val
+            else:
+                joined[key] = val
+        for key, val in joined.items():
+            if isinstance(val, dict):
+                joined[key] = ''.join([text for index, text in sorted(val.items(), cmp=lambda a,b:cmp(a[0],b[0]))])
+        return joined
+
     def connect(self):
         if not self.connected:
             self.connection = SDBConnection(self.access_key, self.secret_key)
