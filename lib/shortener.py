@@ -11,7 +11,8 @@ class ShortenerBadUrlError(Exception): pass
 
 class Shortener(object):
     """
-    Methods for API.
+    API methods to operate on the URLs: shorten long urls and resolve short ones.
+    All analytical operations are in Analytics & Dimension classes & descendants.
     """
     
     def __init__(self, host, sequences, urls, shortened_queue, analytics):
@@ -21,9 +22,23 @@ class Shortener(object):
         self.host = host
         self.shortened_queue = shortened_queue
         self.analytics = analytics
-        self.generator = CentralizedGenerator(sequences)
+        self.generator = CentralizedGenerator(sequences, prohibit=r'(^v\d+/) | (^/) | (//)')
+        #!!!FIXME: this prohibition approach is not good, because you will stuch at "v0..." block,
+        #!!!FIXME: since it is VERY LARGE and you'll iterate over all of it.
+        #???TODO: possible solution is to prhibit some beginnings and endings only (v\d+/  & .html/.json)
+        #???TODO: and also some sequences in the middle (//) -- this can be controlled _inside_ the
+        #???TODO: Sequence recursion (i.e. not only on the resulting string) and be fastened easyly (probably).
+        #???TODO: SequenceRules class with check_start, check_end, check_middle methods?
     
     def resolve(self, id):
+        """
+        Resolves the short id. If you want to resolve the url, you should
+        first parse it into a host & id parts, and the ask proper shortener
+        instance (specific for each host) to resolve that id.
+        
+        Returns an URL instance with all fields fulfilled.
+        """
+        
         try:
             item = self.urls.fetch(id)
             #todo later: we can add checks for moderation status here, etc.
@@ -33,10 +48,12 @@ class Shortener(object):
     
     def shorten(self, url, id_wanted=None, retries=10, remote_addr=None, remote_port=None):
         """
-        Shortens the url and saves it with the id requested or generated.
-        Return the absolute url of the new url shortcut.
+        Shortens the long url and saves it with the id requested or generated.
+        
+        Returns an URL instance with all fields fulfilled as if it has been resolved.
         """
         
+        #??? do we care? maybe that is a view's responsibility to validate the input?
         if '://' not in url or len(url) > 8*1024:
             raise ShortenerBadUrlError("URL is not an URL?")
         
@@ -44,11 +61,11 @@ class Shortener(object):
         # there could be other urls stored already with this id. For example,
         # if the url was stored with the manually specified id earlier; or if
         # there was another generator algorythm before. The only way to catch
-        # these conflicts is to try to store, and see if that has succeded
+        # these conflicts is to try to store, and see if that was successful
         # (note that the generators should not know the purpose of the id and
-        # cannot check for uniqueness by themselves; though that would not help).
+        # cannot check for uniqueness by themselves; that would not help, btw).
         def try_create():
-            # Usual scenario: generate the id, try to store the item.
+            # Usual scenario: generate the id, then try to store the item.
             id = id_wanted or self.generator.generate()
             #if re.match(r'(^v\d+/) | (^/)', id, re.I | re.X):
             #    #!!!FIXME
