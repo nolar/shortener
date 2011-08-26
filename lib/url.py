@@ -10,8 +10,8 @@ class URL(Storable):
     used with JSON serializers, etc -- to mimic the built-in type.
     """
 
-    def __init__(self, host, id, code, url, created_ts=None, remote_addr=None, remote_port=None, **kwargs):
-        super(URL, self).__init__(**kwargs)
+    def __init__(self, host=None, id=None, code=None, url=None, created_ts=None, remote_addr=None, remote_port=None, **kwargs):
+        super(URL, self).__init__()
         self['host'] = host
         self['id'  ] = id
         self['code' ] = code
