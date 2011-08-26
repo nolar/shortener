@@ -81,18 +81,14 @@ class Storage(object):
     def __init__(self):
         super(Storage, self).__init__()
 
-    def store(self, id, url):
-        raise NotImplemented()
-    
     def fetch(self, id):
-        raise NotImplemented()
-    
-    def query(self, columns=None, where=None, order=None, limit=None):
-        raise NotImplemented()
-    
-    #???
-    #def fetch_one(self, id): pass
-    #def fetch_few(self, ids): pass
+        raise NotImplementedError()
+
+    def mfetch(self, ids):#!!! stupid name! is there a 6-letter verb for multi-id fetch (but not select/search/query)?
+        raise NotImplementedError()
+
+    def select(self, filters={}, sorters=[], limit=None):
+        raise NotImplementedError()
 
     @staticmethod
     def repeat(fn, retries=1, exception=None):

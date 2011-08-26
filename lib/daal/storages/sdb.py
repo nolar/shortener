@@ -59,7 +59,7 @@ class SDBStorage(Storage):
             else:
                 raise
     
-    def fetch(self, id_or_ids):
+    def fetch(self, id):
         """
         Fetches one or many items by ids. If id is a string, one item is fetched,
         otherwise id is treated as a sequence of ids and all of them are fetched.
@@ -68,47 +68,61 @@ class SDBStorage(Storage):
         
         self._connect()
 
-        if isinstance(id_or_ids, (basestring, StorageID)):
-            id = id_or_ids
-            id = unicode(StorageID(id))
-            item = self.domain.get_attributes(id, consistent_read=True)
-            if not item:
-                raise StorageItemAbsentError("The item '%s' is not found." % id)
-            item = self._rejoin(item)
-            return item
-        else:
-            ids = id_or_ids
-            items = []
-            #??? is there any itertools function to iterate the batches?
-            for i in xrange(0, len(ids) / 20 + 1):
-                ids_slice = ids[i*20:(i+1)*20]
-                if ids_slice:
-                    ids_str = ','.join([unicode(StorageID(id)) for id in ids_slice])#!!!! ad normal escaping
-                    query = 'SELECT * FROM %s WHERE itemName() in (%s)' % (self.domain.name, ids_str)
-                    for item in self.domain.select(query):
-                        items.append(self._rejoin(item))
-            return items
-    
-    def query(self, columns=None, where=None, order=None, limit=None):
-        """
-        Builds and executes the SQL-like query to the storage.
+        id = unicode(StorageID(id))
         
-        TODO: query() is highly unwanted in key-value storages, since it introduces
+        item = self.domain.get_attributes(id, consistent_read=True)
+        if not item:
+            raise StorageItemAbsentError("The item '%s' is not found." % id)
+        
+        result = self._rejoin(item)
+        return result
+
+    def mfetch(self, ids):
+        """
+        Fetches one or many items by ids. If id is a string, one item is fetched,
+        otherwise id is treated as a sequence of ids and all of them are fetched.
+        Actual fetch goes in batches of 20 items per requests (SimpleDB limitation).
+        """
+
+        self._connect()
+
+        result = []
+        #??? is there any itertools function to iterate the batches?
+        chunk_length = 20 #NB: hard-coded limit on number of predicates in SimpleDB queries
+        for chunk_offset in xrange(0, len(ids), chunk_length):
+            chunk_ids = ids[chunk_offset:chunk_offset+chunk_length]
+            chunk_str = ','.join(["'%s'" % unicode(StorageID(id)) for id in chunk_ids])#!!!! add string escaping
+            query = 'SELECT * FROM %s WHERE itemName() in (%s)' % (self.domain.name, chunk_str)
+            items = self.domain.select(query)
+            result.extend(map(self._rejoin, items))
+        return result
+
+    def select(self, filters={}, sorters=[], limit=None):
+        """
+        Builds and executes the SQL-like select to the storage.
+        
+        TODO: select() is highly unwanted in key-value storages, since it introduces
         TODO: very complexed overhead to the semantics of the class. Try to remove it.
         TODO: As of now, it is used in analytics dimensions only.
         """
         
         self._connect()
+
+        #TODO: escape domain name and field names
+        extra_fields = [field for field, order in sorters if field not in filters]
+        filters = ' AND '.join(["%s='%s'" % (field, value) for field, value in filters.items()] + ["%s>=''" % field for field in extra_fields])
+        sorters = ', '.join(["%s %s" % (field, ["ASC","DESC"][int(bool(order))]) for field, order in sorters])
+        
         query = ''
-        query +=  'SELECT %s' % (','.join(columns) if columns else '*')
-        query +=  ' FROM  %s' % (self.domain.name)
-        query += (' WHERE %s'    % where) if where else ''
-        query += (' ORDER BY %s' % order) if order else ''
-        query += (' LIMIT %s'    % limit) if limit else ''
-        return [self._rejoin(item) for item in self.domain.select(query)]
-    
-    #def fetch_one(self, id): pass
-    #def fetch_few(self, ids): pass
+        query += ("SELECT * FROM %s" % (self.domain.name))
+        query += (" WHERE %s"    % filters) if filters else ''
+        query += (" ORDER BY %s" % sorters) if sorters else ''
+        query += (" LIMIT %s"    % limit  ) if limit   else ''
+        print(query)
+
+        items = self.domain.select(query)
+        result = list(map(self._rejoin, items))
+        return result
     
     def try_create(self, factory):
         """

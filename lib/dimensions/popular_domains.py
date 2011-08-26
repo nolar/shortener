@@ -67,7 +67,7 @@ class PopularDomainsDimension(Dimension):
         #FIXME: this will eat all our memory on a loaded system.
         #IDEA: calculate in the background too, store a grid of results for N=3-5-10-20-30-50-100, days=1-2-3-7-10-14-30
         #IDEA: isn't it map-reduce job after all?
-        slices = self.storage.fetch(slice_ids)
+        slices = self.storage.mfetch(slice_ids)
         
         # Combine all the slices to one single dictionary.
         combined = {}

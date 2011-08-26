@@ -48,7 +48,7 @@ class RecentTargetsDimension(Dimension):
         There is not analytics for global shortener urls, but it can be added
         easily (just remove the wrapping aroung last_urls storage).
         """
-        items = self.storage.query(where="timestamp > ''", order="timestamp desc", limit=n)
+        items = self.storage.select(sorters=[('timestamp', True)], limit=n)
         items = items[:n]
         #TODO: return as list of URL instances?
         items = [URL(**item) for item in items]

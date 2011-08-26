@@ -43,18 +43,15 @@ class WrappedStorage(Storage):
         self.storage = storage
         self.host = host
 
-    def store(self, id, value, expect=None, unique=None):
-        return self.storage.store(self._wrap_id(id), value, expect=expect, unique=unique)
-
     def fetch(self, id):
         return self.storage.fetch(self._wrap_id(id))
-    
-    def query(self, columns=None, where=None, order=None, limit=None):
-        #!!! itemName() is an internal implementation detail of SDBStorage only, not a wrapper
-        addon = "itemName() like '%s%%'" % (self.prefix)#!!! escape
-        where = "(%s) AND (%s)" % (where, addon) if where else "(%s)" % (addon)
-        return self.storage.query(columns, where, order, limit)
-    
+
+    def mfetch(self, ids):
+        return self.storage.mfetch(list(map(self._wrap_id, ids)))
+
+    def select(self, filters={}, sorters=[], limit=None):
+        return self.storage.select(filters=dict(filters, host=self.host), sorters=sorters, limit=limit)
+
     def create(self, factory, retries=1):
         return self.storage.create(self._wrap_factory(factory), retries=retries)
     
