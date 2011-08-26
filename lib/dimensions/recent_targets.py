@@ -1,4 +1,5 @@
 # coding: utf-8
+from ..daal.storages import Storable
 from ..daal.storages import StorageUniquenessError, StorageItemAbsentError, StorageExpectationError
 from ..url import URL
 from ._base import Dimension
@@ -33,12 +34,13 @@ class RecentTargetsDimension(Dimension):
         Updates the records for the recent targets analytics by adding the
         specified shortened url.
         """
-        
-        timestamp = int(time.time() * 1000000)
-        item = dict(shortened_url)
-        item['timestamp'] = timestamp
-        key = 'item_%s_%s' % (shortened_url.host, shortened_url.id) # does no matter actually, but must be unique
-        self.storage.store(key, item)
+
+        def gen_item():
+            timestamp = int(time.time() * 1000000)
+            item = dict(shortened_url)
+            item['timestamp'] = timestamp
+            return item
+        self.storage.create(gen_item)
     
     def retrieve(self, n):
         """

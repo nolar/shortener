@@ -9,6 +9,16 @@ class ShortenerIdAbsentError(Exception): pass
 class ShortenerIdExistsError(Exception): pass
 class ShortenerBadUrlError(Exception): pass
 
+#TODO: Shortener should know nothing about hosts and separation by hosts names - it should be below it.
+#TODO: Storage should know nothing about hosts (maybe as one of the fields only) - it should be above it.
+#TODO: So, to introduce host separation, there should be someting in between - WrappedStorage(real_storage, host) is ok.
+#The only question is how to transparently make all this work? Wrapper should add "host" field to the items,
+#both on fetches and on updates. And the physical id should be separated from "id" field then:
+#  one of the ways is: make "id" fields be altered in wrapper, but also keep the "code" item untouched as data field.
+#  and template urls should never use "id" field, but code only.
+#  Maybe: make these fields protected: name them as _host_ and _id_ with underscores,
+#  Remove them from URL class declaration, and either make them hidden at all, or declared in base StorageItem class.
+
 class Shortener(object):
     """
     API methods to operate on the URLs: shorten long urls and resolve short ones.
@@ -64,36 +74,29 @@ class Shortener(object):
         # these conflicts is to try to store, and see if that was successful
         # (note that the generators should not know the purpose of the id and
         # cannot check for uniqueness by themselves; that would not help, btw).
-        def try_create():
-            # Usual scenario: generate the id, then try to store the item.
-            id = id_wanted or self.generator.generate()
-            #if re.match(r'(^v\d+/) | (^/)', id, re.I | re.X):
-            #    #!!!FIXME
-            #    #??? "v"-starting sequences can be very long, we cannot just re-generate them here,
-            #    #??? we must ask the generator not to try to create them, and fail in case of id_wanted.
-            #    raise StorageExpectationError() # just to jump to the exception handler below
-            
-            # Build the resulting url with the host requested and id generated.
-            shortened_url = URL(host = self.host, id = id, url = url,
-                                created_ts = time.time(),
-                                remote_addr = remote_addr,
-                                remote_port = remote_port,
-                                )
-            
-            # Store an item as a dit of values.
-            self.urls.store(id, dict(shortened_url), unique=True)
-            
-            return shortened_url
-        
-        # If we wanted to create the url with the very specific id, we cannot recover from this error.
-        shortened_url = self.urls.repeat(try_create, retries=retries if not id_wanted else 1,
-                                    exception=lambda e: ShortenerIdExistsError("This id exists already, try another one.") if id_wanted else None)
+        def gen_data():
+            code = id_wanted or self.generator.generate()
+            return URL(
+                host = self.host, #!!! shortener should not know about host separation at all
+                id = code, #NB: could be altered by storages
+                code = code,
+                url = url,
+                created_ts = time.time(),
+                remote_addr = remote_addr,
+                remote_port = remote_port,
+            )
+        shortened_url = self.urls.create(gen_data,
+            retries=retries if not id_wanted else 1,
+            #exception=lambda e: ShortenerIdExistsError("This id exists already, try another one.") if id_wanted else None,
+            #!!!! move exception handling to this code. it is not a storage's responsibility.
+            )
+
         
         # Notify the analytics that a new url has been born. Let them torture it a bit.
         # They update the "last urls" and "top domains" structures, in particular.
         # We do not do the updates here in web request, since we do not need the immediate effect.
-        self.shortened_queue.push(dict(shortened_url))
-        #self.analytics.update(shortened_url)
+        #self.shortened_queue.push(dict(shortened_url))
+        self.analytics.update(shortened_url)
         
         return shortened_url 
 

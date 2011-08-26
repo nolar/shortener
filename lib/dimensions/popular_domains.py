@@ -6,6 +6,7 @@ import time
 import random
 import re
 import urlparse
+import functools
 
 
 __all__ = ['PopularDomainsDimension']
@@ -45,19 +46,12 @@ class PopularDomainsDimension(Dimension):
         timeslice = int(shortened_url.created_ts / slicesize) * slicesize
         slice_key = 'timeslice_%s' % (timeslice)
         
-        # Increase the counter with conditional write operation.
-        #TODO: this should be a worry of the storage, not ours. Make stroage.increment(id, field) method.
-        def try_append():
-            try:
-                slice = self.storage.fetch(slice_key)
-            except StorageItemAbsentError, e:
-                slice = {}
-            
-            old_count = int(slice.get(domain, 0))
-            slice[domain] = old_count + 1
-            
-            self.storage.store(slice_key, slice, expect={domain:old_count or False})
-        self.storage.repeat(try_append, retries=3)
+        def increment(domain, data):
+            return {domain: int(data.get(domain, 0)) + 1}
+        self.storage.update(slice_key, functools.partial(increment, domain),
+            field=domain,#!!! remove this, we should not care.
+            retries=3,
+            )
     
     def retrieve(self, n, timedelta):
         

@@ -24,7 +24,7 @@ def resolve(request):
     shortener = make_shortener(request)
     shortened = shortener.resolve(id)
     return {
-        'shortened': dict(shortened),
+        'shortened': shortened,
     }
 
 @as_json
@@ -38,7 +38,7 @@ def shorten(request):
                                     remote_addr=request.META.get('REMOTE_ADDR'),
                                     remote_port=request.META.get('REMOTE_PORT'))
     return {
-        'shortened': dict(shortened),
+        'shortened': shortened,
     }
 
 @as_json

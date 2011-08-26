@@ -1,10 +1,77 @@
 # coding: utf-8
+import functools
+import itertools
 
 __all__ = ['Storage', 'StorageItemAbsentError', 'StorageExpectationError', 'StorageUniquenessError']
+
 
 class StorageItemAbsentError(Exception): pass
 class StorageUniquenessError(Exception): pass
 class StorageExpectationError(Exception): pass
+
+
+class Storable(dict):
+    """
+    Storable is a base class for all items that can be stored in the storages.
+    Used mostly as a syntax sugar to support both dict-like and object-like access,
+    where item['field'] and item.field are equivalent. Descendants of this class
+    can define stricter set of fields, with all others raising an error as usually.
+
+    This class intentionally inherits from built-in dict class for ease of type-casting
+    and serialization (e.g., to JSON or to storages' internal representations)
+    with no additional code of serializers or encoders.
+    """
+    
+    def __init__(self):
+        super(Storable, self).__init__()
+
+    def __iter__(self):
+        return iter(self.items())
+
+    def __getattr__(self, name):
+        if name in self:
+            return self[name]
+        else:
+            raise AttributeError("Storable instance has no attribute '%s'." % name)
+
+    def __setattr__(self, name, value):
+        if name in self:
+            self[name] = value
+        else:
+            raise AttributeError("Storable instance has no attribute '%s'." % name)
+
+
+class StorageID(object):
+    """
+    Storage ID is used to uniquely identify an item in the storage. In most cases it is
+    used only internally within the storages, so external classes still can use regular
+    scalars. Explicit creation of storage ids outside of the storages is not recommended.
+
+    Storages must accept ids both as scalars and as instances of this class. They can
+    normalize the id by calling StorageID(original_id). If the original id happens to be
+    another storage id instance, then it will be wrapped within newly created instance,
+    but will continue to obey all the conventions and protocols for storage ids.
+
+    Storages are allowed to use the ids only in two ways:
+        * by casting them to unicode scalar (suitable for key-value storages):
+                physical_key = unicode(StorageID(original_id))
+        * by accessing all of their fields (suitable for SQL-based storages):
+                compound_key = dict(StorageID(original_id))
+    """
+
+    def __init__(self, id):
+        super(StorageID, self).__init__()
+        self.id = id
+
+    def __iter__(self):
+        if isinstance(self.id, StorageID):
+            return iter(self.id)
+        else:
+            return iter([('id', unicode(self.id))])
+
+    def __unicode__(self):
+        return unicode(self.id)
+
 
 class Storage(object):
     """
@@ -13,16 +80,20 @@ class Storage(object):
     
     def __init__(self):
         super(Storage, self).__init__()
-    
+
     def store(self, id, url):
         raise NotImplemented()
     
-    def fetch(self, host, id):
+    def fetch(self, id):
         raise NotImplemented()
     
     def query(self, columns=None, where=None, order=None, limit=None):
         raise NotImplemented()
     
+    #???
+    #def fetch_one(self, id): pass
+    #def fetch_few(self, ids): pass
+
     @staticmethod
     def repeat(fn, retries=1, exception=None):
         """
@@ -85,3 +156,39 @@ class Storage(object):
                 #??? move self.store() here? just to ensure that it tries to store at all, and to make it meaningful.
             except StorageExpectationError, e:
                 pass
+
+    def create(self, factory, retries=1):
+        """
+        Creates new item. If an item with same id already exists, raises an error.
+        Similar to "add" action in "set/add/replace" memcached-like approach.
+
+        Developers can try generate few different ids to avoid the error. For this,
+        specify id as a callable that returns id value, and retries greater than 1.
+        Values can be a callable too to alter the data if needed.
+        """
+        return self.repeat(functools.partial(self.try_create, factory), retries=retries)
+
+    def update(self, id, fn, retries=1, field=None):
+        """
+        Updates the item if it exists, or creates a new one if it does not exist.
+        Similar to "set" action in "set/add/replace" memcached-like approach,
+        except you have item's values fetched before the update.
+        """
+        return self.repeat(functools.partial(self.try_update, id, fn, field), retries=retries)
+
+    def replace(self, id, fn, retries=1, field=None):
+        """
+        Updates existing item. If the item does not exist, raises and error.
+        Similar to "replace" action in "set/add/replace" memcached-like approach,
+        except you have item's values fetched before the update.
+        """
+        return self.repeat(functools.partial(self.try_replace, id, fn, field), retries=retries)
+
+    def try_create(self, factory):
+        raise NotImplementedError()
+
+    def try_update(self, id, fn, field):
+        raise NotImplementedError()
+
+    def try_replace(self, id, fn, field):
+        raise NotImplementedError()

@@ -82,18 +82,10 @@ class Sequence(object):
         self.prohibit = re.compile(prohibit, re.X) if prohibit else None
     
     def generate(self):
-        def try_increment():
-            try:
-                item = self.storage.fetch(self.id)
-            except StorageItemAbsentError, e:
-                item = {}
-            
-            old_value = item.get('value', None)
-            new_value = self.increment(old_value)
-            self.storage.store(self.id, {'value': new_value}, expect={'value': old_value or False})
-            return new_value
-        
-        return self.storage.repeat(try_increment, retries=self.retries)
+        item = self.storage.update(self.id, lambda data: {'value': self.increment(data.get('value', None))},
+            field = 'value',#!!! this should be somehow removed
+            retries = self.retries)
+        return item.get('value', None)
     
     def increment(self, old_value):
         result = None

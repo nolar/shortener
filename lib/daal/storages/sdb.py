@@ -1,5 +1,5 @@
 # coding: utf-8
-from ._base import Storage
+from ._base import Storage, Storable, StorageID
 from ._base import StorageExpectationError, StorageItemAbsentError, StorageUniquenessError
 from boto.exception import SDBResponseError
 from boto.sdb.connection import SDBConnection
@@ -24,7 +24,7 @@ class SDBStorage(Storage):
         self.connection = None
         self.domain = None
         self.name = name
-
+    
     def store(self, id, value, expect=None, unique=None):
         """
         Stores one single item with its id. Supports atomic conditional writes:
@@ -34,6 +34,8 @@ class SDBStorage(Storage):
         See Storage.repeat() on how to work with this technique.
         """
         
+        id = unicode(StorageID(id))
+
         if unique is not None and expect is not None:
             raise ValueError("Only expect or exists parameter maybe passed, not both.")
         elif expect is not None:
@@ -65,8 +67,10 @@ class SDBStorage(Storage):
         """
         
         self._connect()
-        if isinstance(id_or_ids, basestring):
+
+        if isinstance(id_or_ids, (basestring, StorageID)):
             id = id_or_ids
+            id = unicode(StorageID(id))
             item = self.domain.get_attributes(id, consistent_read=True)
             if not item:
                 raise StorageItemAbsentError("The item '%s' is not found." % id)
@@ -79,7 +83,7 @@ class SDBStorage(Storage):
             for i in xrange(0, len(ids) / 20 + 1):
                 ids_slice = ids[i*20:(i+1)*20]
                 if ids_slice:
-                    ids_str = ','.join(["'%s'" % id for id in ids_slice])#!!!! ad normal escaping
+                    ids_str = ','.join([unicode(StorageID(id)) for id in ids_slice])#!!!! ad normal escaping
                     query = 'SELECT * FROM %s WHERE itemName() in (%s)' % (self.domain.name, ids_str)
                     for item in self.domain.select(query):
                         items.append(self._rejoin(item))
@@ -103,6 +107,86 @@ class SDBStorage(Storage):
         query += (' LIMIT %s'    % limit) if limit else ''
         return [self._rejoin(item) for item in self.domain.select(query)]
     
+    #def fetch_one(self, id): pass
+    #def fetch_few(self, ids): pass
+    
+    def try_create(self, factory):
+        """
+        Makes one attempt to create unique item in the storage.
+        Fails if there is an item with the same id.
+        This method is never used directly; it is called from Storage.create() method in repeating cycle.
+        """
+        
+        # Generate an item. Field values and even id can be different on each try.
+        # Normalize the id for key-value usage scenario.
+        item = factory()
+        id = item['id'] = unicode(StorageID(item['id']))
+
+        # Ensure the item is absent using an attribute that always exists.
+        expected_value = {'id': False}#!!! configurable field name in constructor or class-level
+
+        # Store the values to the physical storage if necessary.
+        self.store(id, item, expect=expected_value)
+
+        # Return
+        return item # re-fetch?
+    
+    def try_update(self, id, fn, field=None):
+        """
+        Makes one attempt to create or update an item in the storage.
+        Fails if the item was changed between fetch() and store().
+        This method is never used directly; it is called from Storage.update() method in repeating cycle.
+        """
+
+        # Normalize the id for key-value usage scenario.
+        id = unicode(StorageID(id))
+
+        # Try to fetch the item's values from the physical storage.
+        # Fallback to empty list of values if the item does not exist.
+        try:
+            item = self.fetch(id)
+        except StorageItemAbsentError, e:
+            item = Storable() # what if it is of another type???
+
+        # Prepare expectation criterion for store() based on the data before the changes.
+        # Note that default old_value is False - to check for absence of the attribute in SDB.
+        expected_value = {field: item.get(field, False)} if field else None
+
+        # Get the values to be updated. Store them to the physical storage if necessary.
+        changes = fn(item)
+        self.store(id, changes, expect=expected_value)
+
+        # Return
+        return changes #??? item changed? re-fetch?
+
+    def try_replace(self, id, fn, field=None):
+        """
+        Makes one attempt to update an item in the storage.
+        Fails if the item does not exist or was changed between fetch() and store().
+        This method is never used directly; it is called from Storage.update() method in repeating cycle.
+        """
+
+        # Normalize the id for key-value usage scenario.
+        id = unicode(StorageID(id))
+
+        # Try to fetch the item's values from the physical storage.
+        # Raise an error if the item does not exist.
+        try:
+            item = self.fetch(id)
+        except StorageItemAbsentError, e:
+            raise # just to make it very obvious that we pass it through.
+
+        # Prepare expectation criterion for store() based on the data before changes.
+        # Note that default old_value is False - to check for absence of the attribute in SDB.
+        expected_value = {field: item.get(field, False)} if field else None
+
+        # Get the values to be updated. Store them to the physical storage if necessary.
+        changes = fn(item)
+        self.store(id, changes, expect=expected_value)
+
+        # Return
+        return changes # re-fetch?
+
     def _split(self, value):
         """
         Prepares the item for storage by splitting long attributes into pieces
