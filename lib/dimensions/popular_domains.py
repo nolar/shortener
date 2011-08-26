@@ -35,7 +35,7 @@ class PopularDomainsDimension(Dimension):
     
     AGE_PRECISION = datetime.timedelta(seconds=12*60*60) # 12 hrs
     
-    def update(self, shortened_url):
+    def register(self, shortened_url):
         #TODO: exclude port information from the hostname, if specified.
         #TODO: normalize domain, remove "www" prefix, strip, lowercase.
         

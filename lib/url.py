@@ -13,7 +13,7 @@ class URL(Storable):
     def __init__(self, host=None, id=None, code=None, url=None, created_ts=None, remote_addr=None, remote_port=None, **kwargs):
         super(URL, self).__init__()
         self['host'] = host
-        self['id'  ] = id
+        self['id'  ] = id or code
         self['code' ] = code
         self['url' ] = url
         self['created_ts' ] = float(created_ts) if created_ts is not None else created_ts

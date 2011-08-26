@@ -6,7 +6,7 @@ to access the data stored in the system. No other classes except these ones!
 """
 
 from lib.shortener import Shortener
-from lib.analytics import Analytics
+from lib.registries import Analytics, Notifier
 from lib.dimensions import RecentTargetsDimension, PopularDomainsDimension
 from lib.daal.storages import SDBStorage, WrappedStorage
 from lib.daal.queues import SQSQueue
@@ -18,12 +18,12 @@ class AWSShortener(Shortener):
         # Since shorteners for different hosts are isolated, wrap all the storages with hostname prefix.
         #!!! be sure that host is NORMALIZED, i.e. "go.to:80"  === "go.to", to avoid unwatned errors.
         #!!! probably, check with the list of available host domains in the config db.
-        super(AWSShortener, self).__init__(host,
+        super(AWSShortener, self).__init__(
             sequences   = WrappedStorage(SDBStorage(access_key, secret_key, 'sequences' ), host=host),
             #generators = WrappedStorage(SDBStorage(access_key, secret_key, 'generators'), host=host),
             urls        = WrappedStorage(SDBStorage(access_key, secret_key, 'urls'      ), host=host),
-            shortened_queue = SQSQueue(access_key, secret_key, name='urls'),
-            analytics = AWSAnalytics(access_key, secret_key, host),
+            registry = AWSAnalytics(access_key, secret_key, host),
+#            registry = AWSNotifier (access_key, secret_key, host),
             )
 
 
@@ -33,6 +33,12 @@ class AWSAnalytics(Analytics):
         super(AWSAnalytics, self).__init__(
             recent_targets  =  RecentTargetsDimension(WrappedStorage(SDBStorage(access_key, secret_key, 'last_urls'  ), host=host)),
             popular_domains = PopularDomainsDimension(WrappedStorage(SDBStorage(access_key, secret_key, 'top_domains'), host=host)),
+        )
+
+class AWSNotifier(Notifier):
+    def __init__(self, access_key, secret_key, host):
+        super(AWSNotifier, self).__init__(
+            queue = SQSQueue(access_key, secret_key, name='urls'),
         )
 
 

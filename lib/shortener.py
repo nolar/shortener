@@ -5,33 +5,33 @@ from .url import URL
 import time
 import re
 
+
 class ShortenerIdAbsentError(Exception): pass
 class ShortenerIdExistsError(Exception): pass
 class ShortenerBadUrlError(Exception): pass
 
-#TODO: Shortener should know nothing about hosts and separation by hosts names - it should be below it.
-#TODO: Storage should know nothing about hosts (maybe as one of the fields only) - it should be above it.
-#TODO: So, to introduce host separation, there should be someting in between - WrappedStorage(real_storage, host) is ok.
-#The only question is how to transparently make all this work? Wrapper should add "host" field to the items,
-#both on fetches and on updates. And the physical id should be separated from "id" field then:
-#  one of the ways is: make "id" fields be altered in wrapper, but also keep the "code" item untouched as data field.
-#  and template urls should never use "id" field, but code only.
-#  Maybe: make these fields protected: name them as _host_ and _id_ with underscores,
-#  Remove them from URL class declaration, and either make them hidden at all, or declared in base StorageItem class.
 
 class Shortener(object):
     """
-    API methods to operate on the URLs: shorten long urls and resolve short ones.
-    All analytical operations are in Analytics & Dimension classes & descendants.
+    API methods to shorten long urls and to resolve short ones.
+
+    Shortener accepts a set of pre-instantiated storages, and each of these storages has
+    its own specific purpose and data structure.
+
+    It also accepts an instance of Analytics or Notifier class and calls it when new url is added.
+    All real analytical operations are in Analytics & Dimension classes and their descendants.
+    Notifier is used for delayed updates of the dimensions, with use of queue & daemon.
+
+    Note that Shortener knows nothing about multi-hosted services. This feature is implemented
+    as a wrapper for storages, and is initialized when creating the shortener instance. All other
+    storages and shortener just do their job within their simplified responsibilities.
     """
     
-    def __init__(self, host, sequences, urls, shortened_queue, analytics):
+    def __init__(self, sequences, urls, registry):
         super(Shortener, self).__init__()
         self.sequences = sequences
         self.urls = urls
-        self.host = host
-        self.shortened_queue = shortened_queue
-        self.analytics = analytics
+        self.registry = registry
         self.generator = CentralizedGenerator(sequences, prohibit=r'(^v\d+/) | (^/) | (//)')
         #!!!FIXME: this prohibition approach is not good, because you will stuch at "v0..." block,
         #!!!FIXME: since it is VERY LARGE and you'll iterate over all of it.
@@ -70,15 +70,13 @@ class Shortener(object):
         # Despite that generator guaranties unique ids within that generator,
         # there could be other urls stored already with this id. For example,
         # if the url was stored with the manually specified id earlier; or if
-        # there was another generator algorythm before. The only way to catch
+        # there was another generator algorithm before. The only way to catch
         # these conflicts is to try to store, and see if that was successful
         # (note that the generators should not know the purpose of the id and
         # cannot check for uniqueness by themselves; that would not help, btw).
         def gen_data():
             code = id_wanted or self.generator.generate()
             return URL(
-                host = self.host, #!!! shortener should not know about host separation at all
-                id = code, #NB: could be altered by storages
                 code = code,
                 url = url,
                 created_ts = time.time(),
@@ -91,12 +89,11 @@ class Shortener(object):
             #!!!! move exception handling to this code. it is not a storage's responsibility.
             )
 
-        
-        # Notify the analytics that a new url has been born. Let them torture it a bit.
-        # They update the "last urls" and "top domains" structures, in particular.
-        # We do not do the updates here in web request, since we do not need the immediate effect.
-        #self.shortened_queue.push(dict(shortened_url))
-        self.analytics.update(shortened_url)
-        
-        return shortened_url 
+        # Notify the registries that a new url has been born. Let them torture it a bit.
+        # Registries update the "last urls" and "top domains" structures, in particular.
+        # Depending on what registry we were initialized with, the update can happen
+        # immediately (if that was an instance of analytics) or be delayed (a notifier).
+        self.registry.register(shortened_url)
 
+        # Return shortened URL to the caller.
+        return shortened_url 

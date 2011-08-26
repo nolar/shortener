@@ -9,7 +9,7 @@ class Dimension(object):
         super(Dimension, self).__init__()
         self.storage = storage
     
-    def update(self, shortened):
+    def register(self, shortened):
         """
         Updates the dimension with new shortened URL instance.
         Usually performed in daemon mode, so it can be long an heavy.

@@ -29,7 +29,7 @@ class RecentTargetsDimension(Dimension):
     keep the queries fast.
     """
     
-    def update(self, shortened_url):
+    def register(self, shortened_url):
         """
         Updates the records for the recent targets analytics by adding the
         specified shortened url.
