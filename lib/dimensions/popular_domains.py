@@ -1,10 +1,7 @@
 # coding: utf-8
-from ..daal.storages import StorageUniquenessError, StorageItemAbsentError, StorageExpectationError
 from ._base import Dimension
 import datetime
 import time
-import random
-import re
 import urlparse
 import functools
 

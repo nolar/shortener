@@ -10,37 +10,6 @@ class StorageUniquenessError(Exception): pass
 class StorageExpectationError(Exception): pass
 
 
-class Storable(dict):
-    """
-    Storable is a base class for all items that can be stored in the storages.
-    Used mostly as a syntax sugar to support both dict-like and object-like access,
-    where item['field'] and item.field are equivalent. Descendants of this class
-    can define stricter set of fields, with all others raising an error as usually.
-
-    This class intentionally inherits from built-in dict class for ease of type-casting
-    and serialization (e.g., to JSON or to storages' internal representations)
-    with no additional code of serializers or encoders.
-    """
-    
-    def __init__(self):
-        super(Storable, self).__init__()
-
-    def __iter__(self):
-        return iter(self.items())
-
-    def __getattr__(self, name):
-        if name in self:
-            return self[name]
-        else:
-            raise AttributeError("Storable instance has no attribute '%s'." % name)
-
-    def __setattr__(self, name, value):
-        if name in self:
-            self[name] = value
-        else:
-            raise AttributeError("Storable instance has no attribute '%s'." % name)
-
-
 class StorageID(object):
     """
     Storage ID is used to uniquely identify an item in the storage. In most cases it is

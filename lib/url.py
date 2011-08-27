@@ -1,7 +1,7 @@
 # coding: utf-8
-from .daal.storages import Storable
+from .daal.item import Item
 
-class URL(Storable):
+class URL(Item):
     """
     Represent an URL item being handled in the system. It is not able to restore
     its state and has no any access to storages, etc, so as it does not know how
@@ -10,10 +10,10 @@ class URL(Storable):
     used with JSON serializers, etc -- to mimic the built-in type.
     """
 
-    def __init__(self, host=None, id=None, code=None, url=None, created_ts=None, remote_addr=None, remote_port=None, **kwargs):
+    def __init__(self, id=None, host=None, code=None, url=None, created_ts=None, remote_addr=None, remote_port=None, **kwargs):
         super(URL, self).__init__()
+        self['id'  ] = id or code #NB: can be altered by storage wrappers
         self['host'] = host
-        self['id'  ] = id or code
         self['code' ] = code
         self['url' ] = url
         self['created_ts' ] = float(created_ts) if created_ts is not None else created_ts

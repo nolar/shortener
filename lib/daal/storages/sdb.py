@@ -1,5 +1,6 @@
 # coding: utf-8
-from ._base import Storage, Storable, StorageID
+from ..item import Item
+from ._base import Storage, StorageID
 from ._base import StorageExpectationError, StorageItemAbsentError, StorageUniquenessError
 from boto.exception import SDBResponseError
 from boto.sdb.connection import SDBConnection
@@ -160,7 +161,7 @@ class SDBStorage(Storage):
         try:
             item = self.fetch(id)
         except StorageItemAbsentError, e:
-            item = Storable() # what if it is of another type???
+            item = Item() # what if it is of another type???
 
         # Prepare expectation criterion for store() based on the data before the changes.
         # Note that default old_value is False - to check for absence of the attribute in SDB.
