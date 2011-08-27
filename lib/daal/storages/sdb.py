@@ -154,21 +154,26 @@ class SDBStorage(Storage):
         """
 
         # Normalize the id for key-value usage scenario.
+        pk = dict(StorageID(id))
         id = unicode(StorageID(id))
 
         # Try to fetch the item's values from the physical storage.
         # Fallback to empty list of values if the item does not exist.
         try:
             item = self.fetch(id)
+            extra_changes = {}
         except StorageItemAbsentError, e:
             item = Item() # what if it is of another type???
+            extra_changes = pk
 
         # Prepare expectation criterion for store() based on the data before the changes.
         # Note that default old_value is False - to check for absence of the attribute in SDB.
         expected_value = {field: item.get(field, False)} if field else None
 
         # Get the values to be updated. Store them to the physical storage if necessary.
+        item.update(extra_changes)
         changes = fn(item)
+        changes.update(extra_changes)
         self.store(id, changes, expect=expected_value)
 
         # Return
