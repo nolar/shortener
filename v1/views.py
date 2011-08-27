@@ -1,6 +1,6 @@
 # coding: utf-8
 import datetime
-from .decorators import as_json, as_html, as_redirector
+from .decorators import with_profile, as_json, as_html, as_redirector
 from .setup import make_analytics, make_shortener
 from lib.shortener import ShortenerIdAbsentError
 from django.http import Http404
@@ -17,6 +17,7 @@ def redirect(request, id):
 
 @as_json
 @as_html('v1/resolve.html')
+@with_profile
 def resolve(request):
     id = request.GET.get('id', None)
     if not id: raise ValueError("ID must be specified to be resolved.")
@@ -29,6 +30,7 @@ def resolve(request):
 
 @as_json
 @as_html('v1/shorten.html')
+@with_profile
 def shorten(request):
     url = request.GET.get('url', None)
     if not url: raise ValueError("URL is required.")
@@ -43,6 +45,7 @@ def shorten(request):
 
 @as_json
 @as_html('v1/recent_targets.html')
+@with_profile
 def analytics_recent_targets(request):
     count = int(request.GET.get('count', 100))
     if count <= 0: raise ValueError("Count must be positive integer.")
@@ -55,6 +58,7 @@ def analytics_recent_targets(request):
 
 @as_json
 @as_html('v1/popular_domains.html')
+@with_profile
 def analytics_popular_domains(request):
     count = int(request.GET.get('count', 10))
     if count <= 0: raise ValueError("Count must be positive integer.")
