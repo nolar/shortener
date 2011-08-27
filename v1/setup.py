@@ -9,7 +9,7 @@ from lib.shortener import Shortener
 from lib.generators import CentralizedGenerator
 from lib.registries import Analytics, Blackhole, Notifier
 from lib.dimensions import RecentTargetsDimension, PopularDomainsDimension
-from lib.daal.storages import SDBStorage, WrappedStorage
+from lib.daal.storages import SDBStorage, MysqlStorage, WrappedStorage
 from lib.daal.queues import SQSQueue
 from django.conf import settings
 
@@ -17,7 +17,7 @@ from django.conf import settings
 class AWSShortener(Shortener):
     def __init__(self, access_key, secret_key, host):
         super(AWSShortener, self).__init__(
-            storage   = WrappedStorage(SDBStorage(access_key, secret_key, 'urls'), host=host),
+            storage   = WrappedStorage(MysqlStorage('urls'), host=host),
             registry  = AWSAnalytics(access_key, secret_key, host),
 #            registry  = AWSNotifier (access_key, secret_key, host),
 #            registry  = Blackhole(),
@@ -27,15 +27,15 @@ class AWSShortener(Shortener):
 class AWSGenerator(CentralizedGenerator):
     def __init__(self, access_key, secret_key, host):
         super(AWSGenerator, self).__init__(
-            storage = WrappedStorage(SDBStorage(access_key, secret_key, 'sequences'), host=host),
+            storage = WrappedStorage(MysqlStorage('sequences'), host=host),
             prohibit=r'(^v\d+/) | (^/) | (//)',
         )
 
 class AWSAnalytics(Analytics):
     def __init__(self, access_key, secret_key, host):
         super(AWSAnalytics, self).__init__(
-            recent_targets  =  RecentTargetsDimension(WrappedStorage(SDBStorage(access_key, secret_key, 'last_urls'  ), host=host)),
-            popular_domains = PopularDomainsDimension(WrappedStorage(SDBStorage(access_key, secret_key, 'top_domains'), host=host)),
+            recent_targets  =  RecentTargetsDimension(WrappedStorage(MysqlStorage('last_urls'  ), host=host)),
+#            popular_domains = PopularDomainsDimension(WrappedStorage(MysqlStorage('top_domains'), host=host)),
         )
 
 class AWSNotifier(Notifier):
