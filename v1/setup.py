@@ -1,11 +1,12 @@
 # coding: utf-8
 """
 This module contains pre-configured layout for the shortener system.
-All views and daemons use these pre-configured classes (or factories) only
-to access the data stored in the system. No other classes except these ones!
+It describes all the parameters and all the connections between components.
+All views and daemons should use only these pre-configured classes/factories.
+No other classes/factories except these ones - to keep the system consistent!
 """
-
 from lib.shortener import Shortener
+from lib.generators import CentralizedGenerator
 from lib.registries import Analytics, Notifier
 from lib.dimensions import RecentTargetsDimension, PopularDomainsDimension
 from lib.daal.storages import SDBStorage, WrappedStorage
@@ -15,19 +16,20 @@ from django.conf import settings
 
 class AWSShortener(Shortener):
     def __init__(self, access_key, secret_key, host):
-        # Since shorteners for different hosts are isolated, wrap all the storages with hostname prefix.
-        #!!! be sure that host is NORMALIZED, i.e. "go.to:80"  === "go.to", to avoid unwatned errors.
-        #!!! probably, check with the list of available host domains in the config db.
         super(AWSShortener, self).__init__(
-            sequences   = WrappedStorage(SDBStorage(access_key, secret_key, 'sequences' ), host=host),
-            #generators = WrappedStorage(SDBStorage(access_key, secret_key, 'generators'), host=host),
-            urls        = WrappedStorage(SDBStorage(access_key, secret_key, 'urls'      ), host=host),
-            registry = AWSAnalytics(access_key, secret_key, host),
-#            registry = AWSNotifier (access_key, secret_key, host),
+            storage   = WrappedStorage(SDBStorage(access_key, secret_key, 'urls'), host=host),
+            registry  = AWSAnalytics(access_key, secret_key, host),
+#            registry  = AWSNotifier (access_key, secret_key, host),
+            generator = AWSGenerator(access_key, secret_key, host),
             )
 
+class AWSGenerator(CentralizedGenerator):
+    def __init__(self, access_key, secret_key, host):
+        super(AWSGenerator, self).__init__(
+            storage = WrappedStorage(SDBStorage(access_key, secret_key, 'sequences'), host=host),
+            prohibit=r'(^v\d+/) | (^/) | (//)',
+        )
 
-#??? shouldn't analytics be a part of shortener? and accessed through a shortener?
 class AWSAnalytics(Analytics):
     def __init__(self, access_key, secret_key, host):
         super(AWSAnalytics, self).__init__(
@@ -41,15 +43,21 @@ class AWSNotifier(Notifier):
             queue = SQSQueue(access_key, secret_key, name='urls'),
         )
 
+def get_host(request):
+    host = request.META.get('HTTP_HOST') #!!! or DEFAULT_HOST?
+    host = host.lower()
+    host = host[4:] if host.startswith('www.') else host
+    host = host[:-3] if host.endswith(':80') else host
+    return host
 
 def make_shortener(request):
-    return AWSShortener(host=request.META.get('HTTP_HOST'), #!!! or DEFAULT_HOST?
+    return AWSShortener(host=get_host(request),
                         access_key = settings.AWS_ACCESS_KEY,
                         secret_key = settings.AWS_SECRET_KEY,
                         )
 
 def make_analytics(request):
-    return AWSAnalytics(host=request.META.get('HTTP_HOST'), #!!! or DEFAULT_HOST?
+    return AWSAnalytics(host=get_host(request),
                     access_key = settings.AWS_ACCESS_KEY,
                     secret_key = settings.AWS_SECRET_KEY,
                     )

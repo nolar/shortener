@@ -27,19 +27,12 @@ class Shortener(object):
     storages and shortener just do their job within their simplified responsibilities.
     """
     
-    def __init__(self, sequences, urls, registry):
+    def __init__(self, storage, registry, generator):
         super(Shortener, self).__init__()
-        self.sequences = sequences
-        self.urls = urls
+        self.storage = storage
         self.registry = registry
-        self.generator = CentralizedGenerator(sequences, prohibit=r'(^v\d+/) | (^/) | (//)')
-        #!!!FIXME: this prohibition approach is not good, because you will stuch at "v0..." block,
-        #!!!FIXME: since it is VERY LARGE and you'll iterate over all of it.
-        #???TODO: possible solution is to prhibit some beginnings and endings only (v\d+/  & .html/.json)
-        #???TODO: and also some sequences in the middle (//) -- this can be controlled _inside_ the
-        #???TODO: Sequence recursion (i.e. not only on the resulting string) and be fastened easyly (probably).
-        #???TODO: SequenceRules class with check_start, check_end, check_middle methods?
-    
+        self.generator = generator
+
     def resolve(self, id):
         """
         Resolves the short id. If you want to resolve the url, you should
@@ -50,7 +43,7 @@ class Shortener(object):
         """
         
         try:
-            item = self.urls.fetch(id)
+            item = self.storage.fetch(id)
             #todo later: we can add checks for moderation status here, etc.
             return URL(**item)
         except StorageItemAbsentError, e:
@@ -83,7 +76,7 @@ class Shortener(object):
                 remote_addr = remote_addr,
                 remote_port = remote_port,
             )
-        shortened_url = self.urls.create(gen_data,
+        shortened_url = self.storage.create(gen_data,
             retries=retries if not id_wanted else 1,
             #exception=lambda e: ShortenerIdExistsError("This id exists already, try another one.") if id_wanted else None,
             #!!!! move exception handling to this code. it is not a storage's responsibility.

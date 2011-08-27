@@ -80,7 +80,13 @@ class Sequence(object):
         self.min_length = min_length or 1
         self.max_length = max_length or 1024
         self.prohibit = re.compile(prohibit, re.X) if prohibit else None
-    
+        #!!!FIXME: this prohibition approach is not good, because you will stuch at "v0..." block,
+        #!!!FIXME: since it is VERY LARGE and you'll iterate over all of it.
+        #???TODO: possible solution is to prhibit some beginnings and endings only (v\d+/  & .html/.json)
+        #???TODO: and also some sequences in the middle (//) -- this can be controlled _inside_ the
+        #???TODO: Sequence recursion (i.e. not only on the resulting string) and be fastened easyly (probably).
+        #???TODO: SequenceRules class with check_start, check_end, check_middle methods?
+
     def generate(self):
         item = self.storage.update(self.id, lambda data: {'value': self.increment(data.get('value', None))},
             field = 'value',#!!! this should be somehow removed
