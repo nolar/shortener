@@ -1,8 +1,20 @@
 import functools
 import json
+import time
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render_to_response
 from django.conf import settings
+
+def with_profile(fn):
+        @functools.wraps(fn)
+        def decorated(request, *args, **kwargs):
+            ts_start = time.time()
+            result = fn(request, *args, **kwargs)
+            ts_end = time.time()
+            duration = ts_end - ts_start
+            result['profile'] = {'duration': duration}
+            return result
+        return decorated
 
 def as_json(fn, catch=[Exception]):
         @functools.wraps(fn)
