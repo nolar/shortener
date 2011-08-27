@@ -17,9 +17,8 @@ from django.conf import settings
 class AWSShortener(Shortener):
     def __init__(self, access_key, secret_key, host):
         super(AWSShortener, self).__init__(
-            storage   = WrappedStorage(MysqlStorage('urls'), host=host),
+            storage   = WrappedStorage(SDBStorage(access_key, secret_key, 'urls'), host=host),
             registry  = AWSAnalytics(access_key, secret_key, host),
-#            registry  = AWSNotifier (access_key, secret_key, host),
 #            registry  = Blackhole(),
             generator = AWSGenerator(access_key, secret_key, host),
             )
@@ -27,15 +26,15 @@ class AWSShortener(Shortener):
 class AWSGenerator(CentralizedGenerator):
     def __init__(self, access_key, secret_key, host):
         super(AWSGenerator, self).__init__(
-            storage = WrappedStorage(MysqlStorage('sequences'), host=host),
+            storage = WrappedStorage(SDBStorage(access_key, secret_key, 'sequences'), host=host),
             prohibit=r'(^v\d+/) | (^/) | (//)',
         )
 
 class AWSAnalytics(Analytics):
     def __init__(self, access_key, secret_key, host):
         super(AWSAnalytics, self).__init__(
-            recent_targets  =  RecentTargetsDimension(WrappedStorage(MysqlStorage('last_urls'  ), host=host)),
-#            popular_domains = PopularDomainsDimension(WrappedStorage(MysqlStorage('top_domains'), host=host)),
+            recent_targets  =  RecentTargetsDimension(WrappedStorage(SDBStorage(access_key, secret_key, 'last_urls'  ), host=host)),
+            popular_domains = PopularDomainsDimension(WrappedStorage(SDBStorage(access_key, secret_key, 'popular2counters'), host=host)),
         )
 
 class AWSNotifier(Notifier):
@@ -43,6 +42,39 @@ class AWSNotifier(Notifier):
         super(AWSNotifier, self).__init__(
             queue = SQSQueue(access_key, secret_key, name='urls'),
         )
+
+
+
+class MysqlShortener(Shortener):
+    def __init__(self, access_key, secret_key, host):
+        super(MysqlShortener, self).__init__(
+            storage   = WrappedStorage(MysqlStorage('urls'), host=host),
+            registry  = MysqlAnalytics(access_key, secret_key, host),
+#            registry  = Blackhole(),
+            generator = MysqlGenerator(access_key, secret_key, host),
+            )
+
+class MysqlGenerator(CentralizedGenerator):
+    def __init__(self, access_key, secret_key, host):
+        super(MysqlGenerator, self).__init__(
+            storage = WrappedStorage(MysqlStorage('sequences'), host=host),
+            prohibit=r'(^v\d+/) | (^/) | (//)',
+        )
+
+class MysqlAnalytics(Analytics):
+    def __init__(self, access_key, secret_key, host):
+        super(MysqlAnalytics, self).__init__(
+            recent_targets  =  RecentTargetsDimension(WrappedStorage(MysqlStorage('last_urls'  ), host=host)),
+#            popular_domains = PopularDomainsDimension(WrappedStorage(MysqlStorage('top_domains'), host=host)),
+        )
+
+class MysqlNotifier(Notifier):
+    def __init__(self, access_key, secret_key, host):
+        super(MysqlNotifier, self).__init__(
+            queue = SQSQueue(access_key, secret_key, name='urls'),
+        )
+
+
 
 def get_host(request):
     host = request.META.get('HTTP_HOST') #!!! or DEFAULT_HOST?
