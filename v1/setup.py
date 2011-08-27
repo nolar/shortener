@@ -7,7 +7,7 @@ No other classes/factories except these ones - to keep the system consistent!
 """
 from lib.shortener import Shortener
 from lib.generators import CentralizedGenerator
-from lib.registries import Analytics, Notifier
+from lib.registries import Analytics, Blackhole, Notifier
 from lib.dimensions import RecentTargetsDimension, PopularDomainsDimension
 from lib.daal.storages import SDBStorage, WrappedStorage
 from lib.daal.queues import SQSQueue
@@ -20,6 +20,7 @@ class AWSShortener(Shortener):
             storage   = WrappedStorage(SDBStorage(access_key, secret_key, 'urls'), host=host),
             registry  = AWSAnalytics(access_key, secret_key, host),
 #            registry  = AWSNotifier (access_key, secret_key, host),
+#            registry  = Blackhole(),
             generator = AWSGenerator(access_key, secret_key, host),
             )
 
