@@ -1,9 +1,7 @@
 # coding: utf-8
-from .daal.storages import StorageUniquenessError, StorageItemAbsentError, StorageExpectationError
-from .generators import Generator, CentralizedGenerator, FakeGenerator
+from .daal.storages import StorageItemAbsentError, StorageExpectationError
 from .url import URL
 import time
-import re
 
 
 class ShortenerIdAbsentError(Exception): pass
@@ -67,20 +65,24 @@ class Shortener(object):
         # these conflicts is to try to store, and see if that was successful
         # (note that the generators should not know the purpose of the id and
         # cannot check for uniqueness by themselves; that would not help, btw).
-        def gen_data():
-            code = id_wanted or self.generator.generate()
-            return URL(
-                code = code,
-                url = url,
-                created_ts = time.time(),
-                remote_addr = remote_addr,
-                remote_port = remote_port,
+        try:
+            def gen_data():
+                code = id_wanted or self.generator.generate()
+                return URL(
+                    code = code,
+                    url = url,
+                    created_ts = time.time(),
+                    remote_addr = remote_addr,
+                    remote_port = remote_port,
+                )
+            shortened_url = self.storage.create(gen_data,
+                retries=retries if not id_wanted else 1,
             )
-        shortened_url = self.storage.create(gen_data,
-            retries=retries if not id_wanted else 1,
-            #exception=lambda e: ShortenerIdExistsError("This id exists already, try another one.") if id_wanted else None,
-            #!!!! move exception handling to this code. it is not a storage's responsibility.
-            )
+        except StorageExpectationError, e:
+            if id_wanted:
+                raise ShortenerIdExistsError("This id exists already, try another one.")
+            else:
+                raise
 
         # Notify the registries that a new url has been born. Let them torture it a bit.
         # Registries update the "last urls" and "top domains" structures, in particular.
