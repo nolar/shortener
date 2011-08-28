@@ -21,7 +21,7 @@ def redirect(request, id):
 def resolve(request):
     id = request.GET.get('id', None)
     if not id: raise ValueError("ID must be specified to be resolved.")
-    
+
     shortener = make_shortener(request)
     shortened = shortener.resolve(id)
     return {
@@ -34,7 +34,7 @@ def resolve(request):
 def shorten(request):
     url = request.GET.get('url', None)
     if not url: raise ValueError("URL is required.")
-    
+
     shortener = make_shortener(request)
     shortened = shortener.shorten(url,
                                     remote_addr=request.META.get('REMOTE_ADDR'),
@@ -49,7 +49,7 @@ def shorten(request):
 def analytics_recent_targets(request):
     count = int(request.GET.get('count', 100))
     if count <= 0: raise ValueError("Count must be positive integer.")
-    
+
     analytics = make_analytics(request)
     return {
         'count': count,
@@ -62,10 +62,10 @@ def analytics_recent_targets(request):
 def analytics_popular_domains(request):
     count = int(request.GET.get('count', 10))
     if count <= 0: raise ValueError("Count must be positive integer.")
-    
+
     days = int(request.GET.get('days', 30))
     if days <= 0: raise ValueError("Days must be positive integer.")
-    
+
     analytics = make_analytics(request)
     return {
         'days': days,

@@ -9,19 +9,19 @@ __all__ = ['MysqlStorage']
 class MysqlStorage(Storage):
     """
     Stores all information in Amazon SimpleDB.
-    
+
     Tries to work around some of its limitations to keep the whole semantics:
     * Limit on number of predicates in WHERE IN query for multi-id fetch (20 max).
     * Limit on the lenght of an attribute (1024 chars max).
     * Others to come.
     """
-    
+
     def __init__(self, name):
         super(MysqlStorage, self).__init__()
         self.connected = False
         self.connection = None
         self.name = name
-    
+
     def store(self, id, value, expect=None, unique=None):
         """
         Stores one single item with its id. Supports atomic conditional writes:
@@ -30,7 +30,7 @@ class MysqlStorage(Storage):
         If conditional write fails, the storage raises expectation error.
         See Storage.repeat() on how to work with this technique.
         """
-        
+
         id = unicode(StorageID(id))
 
         if unique is not None and expect is not None:
@@ -44,7 +44,7 @@ class MysqlStorage(Storage):
             expect = [expect_field, expect_value]
         else:
             expect = None
-        
+
         self._connect()
         try:
             split = self._split(value)
@@ -55,14 +55,14 @@ class MysqlStorage(Storage):
                 raise StorageExpectationError("Storage expecation failed.")
             else:
                 raise
-    
+
     def fetch(self, id):
         """
         Fetches one or many items by ids. If id is a string, one item is fetched,
         otherwise id is treated as a sequence of ids and all of them are fetched.
         Actual fetch goes in batches of 20 items per requests (SimpleDB limitation).
         """
-        
+
         self._connect()
 
         values = dict(StorageID(id))
@@ -108,12 +108,12 @@ class MysqlStorage(Storage):
     def select(self, filters={}, sorters=[], limit=None):
         """
         Builds and executes the SQL-like select to the storage.
-        
+
         TODO: select() is highly unwanted in key-value storages, since it introduces
         TODO: very complexed overhead to the semantics of the class. Try to remove it.
         TODO: As of now, it is used in analytics dimensions only.
         """
-        
+
         self._connect()
 
         #TODO: escape domain name and field names
@@ -121,7 +121,7 @@ class MysqlStorage(Storage):
         extra_fields = [field for field, order in sorters if field not in filters]
         filters = ' AND '.join(["%s=%%(%s)s" % (field, field) for field in filters.keys()])
         sorters = ', '.join(["%s %s" % (field, ["ASC","DESC"][int(bool(order))]) for field, order in sorters])
-        
+
         query = ''
         query += ("SELECT * FROM %s" % (self.name))#!!! escape
         query += (" WHERE %s"    % filters) if filters else ''
@@ -162,7 +162,7 @@ class MysqlStorage(Storage):
 
         # Return
         return item # re-fetch?
-    
+
     def try_update(self, id, fn, field=None):
         """
         Makes one attempt to create or update an item in the storage.
@@ -232,7 +232,7 @@ class MysqlStorage(Storage):
         pk = dict(StorageID(id))
         where = ' AND '.join(["%s = %%(%s)s" % (field, field) for field in pk.keys()])
         return where
-    
+
     def _connect(self):
         """
         Connects to the storage if not connected yet.

@@ -21,13 +21,13 @@ class URL(Item):
         self['remote_port'] = remote_port
 #        self['shortcut'] = 'http://%s/%s' % (host, code)
         #??? optionally, if something left in kwargs, probably this is an error/warning?
-    
+
     def __str__(self):
         return self.shortcut
-    
+
     def __unicode__(self):
         return self.shortcut
-    
+
     @property
     def shortcut(self):
         return 'http://%s/%s' % (self.host, self.code)

@@ -10,13 +10,13 @@ __all__ = ['SDBStorage']
 class SDBStorage(Storage):
     """
     Stores all information in Amazon SimpleDB.
-    
+
     Tries to work around some of its limitations to keep the whole semantics:
     * Limit on number of predicates in WHERE IN query for multi-id fetch (20 max).
     * Limit on the lenght of an attribute (1024 chars max).
     * Others to come.
     """
-    
+
     def __init__(self, access_key, secret_key, name):
         super(SDBStorage, self).__init__()
         self.access_key = access_key
@@ -25,7 +25,7 @@ class SDBStorage(Storage):
         self.connection = None
         self.domain = None
         self.name = name
-    
+
     def store(self, id, value, expect=None, unique=None):
         """
         Stores one single item with its id. Supports atomic conditional writes:
@@ -34,7 +34,7 @@ class SDBStorage(Storage):
         If conditional write fails, the storage raises expectation error.
         See Storage.repeat() on how to work with this technique.
         """
-        
+
         id = unicode(StorageID(id))
 
         if unique is not None and expect is not None:
@@ -48,7 +48,7 @@ class SDBStorage(Storage):
             expect = [expect_field, expect_value]
         else:
             expect = None
-        
+
         self._connect()
         try:
             split = self._split(value)
@@ -59,22 +59,22 @@ class SDBStorage(Storage):
                 raise StorageExpectationError("Storage expecation failed.")
             else:
                 raise
-    
+
     def fetch(self, id):
         """
         Fetches one or many items by ids. If id is a string, one item is fetched,
         otherwise id is treated as a sequence of ids and all of them are fetched.
         Actual fetch goes in batches of 20 items per requests (SimpleDB limitation).
         """
-        
+
         self._connect()
 
         id = unicode(StorageID(id))
-        
+
         item = self.domain.get_attributes(id, consistent_read=True)
         if not item:
             raise StorageItemAbsentError("The item '%s' is not found." % id)
-        
+
         result = self._rejoin(item)
         return result
 
@@ -101,19 +101,19 @@ class SDBStorage(Storage):
     def select(self, filters={}, sorters=[], limit=None):
         """
         Builds and executes the SQL-like select to the storage.
-        
+
         TODO: select() is highly unwanted in key-value storages, since it introduces
         TODO: very complexed overhead to the semantics of the class. Try to remove it.
         TODO: As of now, it is used in analytics dimensions only.
         """
-        
+
         self._connect()
 
         #TODO: escape domain name and field names
         extra_fields = [field for field, order in sorters if field not in filters]
         filters = ' AND '.join(["%s='%s'" % (field, value) for field, value in filters.items()] + ["%s>=''" % field for field in extra_fields])
         sorters = ', '.join(["%s %s" % (field, ["ASC","DESC"][int(bool(order))]) for field, order in sorters])
-        
+
         query = ''
         query += ("SELECT * FROM %s" % (self.domain.name))
         query += (" WHERE %s"    % filters) if filters else ''
@@ -124,14 +124,14 @@ class SDBStorage(Storage):
         items = self.domain.select(query)
         result = list(map(self._rejoin, items))
         return result
-    
+
     def try_create(self, factory):
         """
         Makes one attempt to create unique item in the storage.
         Fails if there is an item with the same id.
         This method is never used directly; it is called from Storage.create() method in repeating cycle.
         """
-        
+
         # Generate an item. Field values and even id can be different on each try.
         # Normalize the id for key-value usage scenario.
         item = factory()
@@ -145,7 +145,7 @@ class SDBStorage(Storage):
 
         # Return
         return item # re-fetch?
-    
+
     def try_update(self, id, fn, field=None):
         """
         Makes one attempt to create or update an item in the storage.
@@ -238,7 +238,7 @@ class SDBStorage(Storage):
         Another way os to store these data in S3, but since it is usually an URL
         with predictable size, why involve one more subsystem?
         """
-        
+
         split = {}
         for key, val in value.items():
             val = unicode(val)
@@ -249,7 +249,7 @@ class SDBStorage(Storage):
                 for i in range(0, len(val)+1, 1024):
                     split[key+'#'+unicode(i)] = val[i:i+1024]
         return split
-    
+
     def _rejoin(self, item):
         """
         Restores the item from storage by joinede all split attributes back
@@ -257,7 +257,7 @@ class SDBStorage(Storage):
         Another way os to store these data in S3, but since it is usually an URL
         with predictable size, why involve one more subsystem?
         """
-        
+
         joined = {}
         for key, val in item.items():
             if '#' in key:
@@ -272,7 +272,7 @@ class SDBStorage(Storage):
             if isinstance(val, dict):
                 joined[key] = ''.join([text for index, text in sorted(val.items(), cmp=lambda a,b:cmp(a[0],b[0]))])
         return joined
-    
+
     def _connect(self):
         """
         Connects to the storage if not connected yet.

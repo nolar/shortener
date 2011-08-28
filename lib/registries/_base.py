@@ -6,7 +6,7 @@ class Registry(object):
     created URL and registers it somehow somewhere for some purpose. Actually,
     it is just an interface and protocol specification for such classes.
     """
-    
+
     def register(self, url):
         raise NotImplementedError()
 

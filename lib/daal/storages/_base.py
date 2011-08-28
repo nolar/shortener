@@ -73,7 +73,7 @@ class Storage(object):
     def repeat(fn, retries=1, exception=None):
         """
         Primitive for repeating tries for conditional writes, etc.
-        
+
         Since some storages have no locks of any kind, the only way to make
         atomic operations is conditional writes (i.e. write only if specific
         field equals to specific value). Classic solution is to try few times
@@ -81,9 +81,9 @@ class Storage(object):
         inside  that cycle, not before it (since you need current values).
         This primitive is exactly what it does: tries to execute your function
         few times before giving up.
-        
+
         Usual case for data altering is like this:
-        
+
             def try_update():
                 item = storage.fetch(id)
                 old_value = item['field']
@@ -116,12 +116,12 @@ class Storage(object):
                 if retries <= 0:
                     if callable(exception):# includes types and classes
                         exception = exception(e)
-                    
+
                     if exception:
                         raise exception
                     else:
                         raise
-    
+
     @staticmethod
     def ignore(fn, retries=1, exception=None):
             #??? NOT USED? probably as a drop-in replacement for repeat() for fast switched forth and back.
@@ -171,7 +171,7 @@ class Storage(object):
     def decrement(self, id, step, retries=1):
         raise NotImplementedError()
 
-    
+
     def try_create(self, factory):
         raise NotImplementedError()
 

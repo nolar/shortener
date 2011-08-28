@@ -20,14 +20,14 @@ class Generator(object):
     possible in URLs without being encoded. The main generation method is generate().
     The generator can also be used with the built-in next(generator_instance) method.
     """
-    
+
     def __init__(self):
         super(Generator, self).__init__()
-    
+
     def __iter__(self):
         while True:
             yield self.generate()
-    
+
     def generate(self):
         """
         Generates one identifier according to the built-in rules and algorythms.
@@ -42,9 +42,9 @@ class FakeGenerator(Generator):
     * non-persistent (resets its state on each load of the system),
     * numeric only (i.e. no alphabet generation is used, just a numbers).
     """
-    
+
     counter = 0
-    
+
     def generate(self):
         FakeGenerator.counter += 1
         return unicode(FakeGenerator.counter)
@@ -57,14 +57,14 @@ class CentralizedGenerator(Generator):
     one single stored item, massive flow of requests will be limited by locking
     or write-expect'ing algorythms, being a bottleneck.
     """
-    
+
     def __init__(self, storage, id='centralized', letters=None, prohibit=None):
         super(CentralizedGenerator, self).__init__()
         self.storage = storage
         self.id = id
         self.letters = letters
         self.prohibit = prohibit
-    
+
     def generate(self):
         result = Sequence(self.storage, self.id, letters=self.letters, prohibit=self.prohibit).generate()
         return result
@@ -92,7 +92,7 @@ class Sequence(object):
             field = 'value',#!!! this should be somehow removed
             retries = self.retries)
         return item.get('value', None)
-    
+
     def increment(self, old_value):
         result = None
         while result is None or (self.prohibit and self.prohibit.search(result)):

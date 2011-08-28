@@ -19,11 +19,11 @@ class Notifier(Registry):
     The processing is usually done by background daemon who pulls from the same queue and
     registers the url with other registries (such as Analytics, etc).
     """
-    
+
     def __init__(self, queue):
         super(Notifier, self).__init__()
         self.queue = queue
-    
+
     def register(self, url):
         self.queue.push(dict(url))
 

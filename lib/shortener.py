@@ -24,7 +24,7 @@ class Shortener(object):
     as a wrapper for storages, and is initialized when creating the shortener instance. All other
     storages and shortener just do their job within their simplified responsibilities.
     """
-    
+
     def __init__(self, storage, registry, generator):
         super(Shortener, self).__init__()
         self.storage = storage
@@ -36,28 +36,28 @@ class Shortener(object):
         Resolves the short id. If you want to resolve the url, you should
         first parse it into a host & id parts, and the ask proper shortener
         instance (specific for each host) to resolve that id.
-        
+
         Returns an URL instance with all fields fulfilled.
         """
-        
+
         try:
             item = self.storage.fetch(id)
             #todo later: we can add checks for moderation status here, etc.
             return URL(**item)
         except StorageItemAbsentError, e:
             raise ShortenerIdAbsentError("Such url does not exist.")
-    
+
     def shorten(self, url, id_wanted=None, retries=10, remote_addr=None, remote_port=None):
         """
         Shortens the long url and saves it with the id requested or generated.
-        
+
         Returns an URL instance with all fields fulfilled as if it has been resolved.
         """
-        
+
         #??? do we care? maybe that is a view's responsibility to validate the input?
         if '://' not in url or len(url) > 8*1024:
             raise ShortenerBadUrlError("URL is not an URL?")
-        
+
         # Despite that generator guaranties unique ids within that generator,
         # there could be other urls stored already with this id. For example,
         # if the url was stored with the manually specified id earlier; or if
@@ -91,4 +91,4 @@ class Shortener(object):
         self.registry.register(shortened_url)
 
         # Return shortened URL to the caller.
-        return shortened_url 
+        return shortened_url
