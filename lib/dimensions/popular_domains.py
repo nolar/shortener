@@ -203,6 +203,7 @@ from ..daal.storages import StorageID
 from ._base import Dimension
 import urlparse
 import datetime
+import calendar
 import time
 
 __all__ = ['PopularDomainsDimension']
@@ -278,7 +279,7 @@ class PopularDomainsDimension(Dimension):
 
     def retrieve(self, n, timedelta):
         # Pre-calculate and extract key parameters of the algorithm.
-        time_shards = self._get_all_time_shards(time.time(), timedelta)
+        time_shards = self._get_all_time_shards(datetime.datetime.utcnow(), datetime.datetime.utcnow()-timedelta)
         grid_levels = self._get_all_grid_levels()
 
         # Here goes the hard thing. To understand what is happening here, read the module description.
@@ -322,23 +323,29 @@ class PopularDomainsDimension(Dimension):
     def _calculate_time_shard(self, ts):
         """
         Calculates time shard identifier based in timestamp provided.
+        The timestamp can be numeric or datetime; UTC is assumed.
+        If you use local time or timezones - those are your problems.
         """
-        #todo later: accept ts as datetime & int & float.
+        if isinstance(ts, datetime.datetime):
+            ts_numeric_value = calendar.timegm(ts.timetuple())
+        else:
+            ts_numeric_value = int(ts)
         time_shard_duration = int(self.time_shard_duration.days*24*60*60 + self.time_shard_duration.seconds)
-        time_shard = int(ts / time_shard_duration) * time_shard_duration
+        time_shard = int(ts_numeric_value / time_shard_duration) * time_shard_duration
         return time_shard
 
-    def _get_all_time_shards(self, ts, timedelta):
+    def _get_all_time_shards(self, ts_a, ts_b):
         """
-        Provides the list of identifiers of all time shards between two moments on a timeline.
-        Boundary moments are specified with timestamp of base moment and timedelta back to the past.
-        TODO later: change to providing two points in time explicitly. use datetime&timedelta math.
+        Provides the list of identifiers of all time shards between two moments
+        on a timeline; time shards of boundary moments are also included.
+        The order of boundary moments (a<b vs a>b) has no matter.
+        The timestamps can be numeric or datetime; UTC is assumed.
+        If you use local time or timezones - those are your problems.
         """
-        time_shard_size = int(self.time_shard_duration.days*24*60*60 + self.time_shard_duration.seconds)
-        timedelta_size = int(timedelta.days * 24*60*60 + timedelta.seconds)
-        past_time_shard = int((ts - timedelta_size) / time_shard_size) * time_shard_size
-        base_time_shard = int((ts - 0             ) / time_shard_size) * time_shard_size
-        time_shards = list(xrange(past_time_shard, base_time_shard+1, time_shard_size))
+        time_shard_duration = int(self.time_shard_duration.days*24*60*60 + self.time_shard_duration.seconds)
+        time_shard_a = self._calculate_time_shard(ts_a)
+        time_shard_b = self._calculate_time_shard(ts_b)
+        time_shards = list(xrange(min(time_shard_a, time_shard_b), max(time_shard_a, time_shard_b)+1, time_shard_duration))
         return time_shards
 
     def _calculate_grid_level(self, value):
