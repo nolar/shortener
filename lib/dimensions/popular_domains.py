@@ -370,7 +370,7 @@ class PopularDomainsDimension(Dimension):
         for grid_level_counter in grid_level_counters:
             time_shard = grid_level_counter['time_shard']
             grid_level = grid_level_counter['grid_level']
-            count = int(grid_level_counter['count'])
+            count = int(grid_level_counter['value'])
             struct.setdefault(time_shard, {}).update({grid_level: count})
 
         # Decide which levels are really necessary for retrieving at least M domains per time shard.
@@ -390,7 +390,7 @@ class PopularDomainsDimension(Dimension):
         pairs = set()#NB: to eliminate duplicates across different grid levels
         for grid_level in grid_level_domains:
             time_shard = grid_level['time_shard']
-            domains = grid_level['domains']
+            domains = grid_level['value']
             domains = domains.split(':::')
             domains = filter(None, domains)
             pairs.update([(time_shard, domain) for domain in domains])
