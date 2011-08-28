@@ -34,7 +34,7 @@ class WrappedStorage(Storage):
     wrapped storage, but changes the IDs to contain the namespace specified.
     The namespace is a set of prefix & suffix for the id. Note that this wrapper
     storage does not affect a domain name, and does not know about such a thing.
-    
+
     TODO: Namespace is called "host" here for project-specific reason, but will be renamed later.
     """
 
@@ -54,13 +54,13 @@ class WrappedStorage(Storage):
 
     def create(self, factory, retries=1):
         return self.storage.create(self._wrap_factory(factory), retries=retries)
-    
+
     def update(self, id, fn, retries=1, field=None):
         return self.storage.update(self._wrap_id(id), fn, retries=retries, field=field)
-    
+
     def replace(self, id, fn, retries=1, field=None):
         return self.storage.replace(self._wrap_id(id), fn, retries=retries, field=field)
-    
+
     def append(self, id, value, retries=1):
         return self.storage.append(self._wrap_id(id), value, retries=retries)
 
@@ -68,10 +68,10 @@ class WrappedStorage(Storage):
         return self.storage.prepend(self._wrap_id(id), value, retries=retries)
 
     def increment(self, id, step, retries=1):
-        return self.storage.increment(self._wrap_id(id), retries=retries)
+        return self.storage.increment(self._wrap_id(id), step, retries=retries)
 
     def decrement(self, id, step, retries=1):
-        return self.storage.decrement(self._wrap_id(id), retries=retries)
+        return self.storage.decrement(self._wrap_id(id), step, retries=retries)
 
     def _wrap_id(self, id):
         """
