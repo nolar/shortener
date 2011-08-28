@@ -23,6 +23,10 @@ class RecentTargetsDimension(Dimension):
     keep the queries fast.
     """
 
+    def __init__(self, storage):
+        super(RecentTargetsDimension, self).__init__()
+        self.storage = storage
+
     def register(self, shortened_url):
         """
         Updates the records for the recent targets analytics by adding the

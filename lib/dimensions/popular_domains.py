@@ -246,7 +246,7 @@ class PopularDomainsDimension(Dimension):
     TIME_SHARD_DURATION = datetime.timedelta(seconds=12*60*60) # 12 hrs
 
     def __init__(self, url_domain_counter_storage, grid_level_counter_storage, grid_level_domains_storage):
-        super(PopularDomainsDimension, self).__init__(url_domain_counter_storage)#!!! Base dimension should have no storage assumptions.
+        super(PopularDomainsDimension, self).__init__()
         self.url_domain_counter_storage = url_domain_counter_storage
         self.grid_level_counter_storage = grid_level_counter_storage
         self.grid_level_domains_storage = grid_level_domains_storage

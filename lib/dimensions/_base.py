@@ -5,9 +5,8 @@ class Dimension(object):
     Base class for analytics dimensions. Just introduces empty protocol.
     """
 
-    def __init__(self, storage):
+    def __init__(self):
         super(Dimension, self).__init__()
-        self.storage = storage
 
     def register(self, shortened):
         """
