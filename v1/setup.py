@@ -34,7 +34,11 @@ class AWSAnalytics(Analytics):
     def __init__(self, access_key, secret_key, host):
         super(AWSAnalytics, self).__init__(
             recent_targets  =  RecentTargetsDimension(WrappedStorage(SDBStorage(access_key, secret_key, 'last_urls'  ), host=host)),
-            popular_domains = PopularDomainsDimension(WrappedStorage(SDBStorage(access_key, secret_key, 'popular2counters'), host=host)),
+            popular_domains = PopularDomainsDimension(
+                url_domain_counter_storage = WrappedStorage(SDBStorage(access_key, secret_key, 'popular2counters3'), host=host),
+                grid_level_counter_storage = WrappedStorage(SDBStorage(access_key, secret_key, 'popular2gridcnt3'), host=host),
+                grid_level_domains_storage = WrappedStorage(SDBStorage(access_key, secret_key, 'popular2griddom3'), host=host),
+            ),
         )
 
 class AWSNotifier(Notifier):
