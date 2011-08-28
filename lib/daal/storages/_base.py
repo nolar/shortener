@@ -16,9 +16,9 @@ class StorageID(object):
     used only internally within the storages, so external classes still can use regular
     scalars. Explicit creation of storage ids outside of the storages is not recommended.
 
-    Storages must accept ids both as scalars and as instances of this class. They can
-    normalize the id by calling StorageID(original_id). If the original id happens to be
-    another storage id instance, then it will be wrapped within newly created instance,
+    Storages must accept ids both as scalars and as instances of this class or its descendants.
+    They can normalize the id by calling StorageID(original_id). If the original id happens
+    to be another storage id instance, then it will be wrapped within newly created instance,
     but will continue to obey all the conventions and protocols for storage ids.
 
     Storages are allowed to use the ids only in two ways:
@@ -26,27 +26,37 @@ class StorageID(object):
                 physical_key = unicode(StorageID(original_id))
         * by accessing all of their fields (suitable for SQL-based storages):
                 compound_key = dict(StorageID(original_id))
+
+    Descendants are allowed to ignore "id" attribute. In this case, i.e. when "id" attribute
+    is not initialized in call to StorageID constructor, descendants classes must overrride
+    __iter__() & __unicode__() methods. Calls to StorageID methods will raise "not implemented" error.
+    This is especially useful for compound IDs with set of fields not including "id".
     """
 
-    def __init__(self, id):
+    def __init__(self, id=None):
         super(StorageID, self).__init__()
         self.id = id
 
     def __iter__(self):
-        if isinstance(self.id, StorageID):
+        if self.id is None:
+            raise NotImplementedError()
+        elif isinstance(self.id, StorageID):
             return iter(self.id)
         else:
             return iter([('id', unicode(self.id))])
 
     def __unicode__(self):
-        return unicode(self.id)
+        if self.id is None:
+            raise NotImplementedError()
+        else:
+            return unicode(self.id)
 
 
 class Storage(object):
     """
     Base class for all storages.
     """
-    
+
     def __init__(self):
         super(Storage, self).__init__()
 
@@ -81,23 +91,23 @@ class Storage(object):
                 item['field'] = new_value
                 storage.store(id, item, expect={'field':old_value})
             storage.repeat(try_update, retries=3)
-        
+
         Usual case for data creation is like this:
-        
+
             def try_create():
                 id = generate_id()
                 storage.store(id, item, unique='id')
             storage.repeat(try_create, retries=3)
-        
+
         You can also specify what exception will be thrown in case of all
         the tries will fail: it can be either the exception instance, or
         callback which return an exception instance. If exception is not
         specified or the callback returns None, the original exception is
         re-raised. Note that callback can also be a class of the exception.
-        
+
         TODO: move store() action inside this loop, but simplify it before (now it is too complex).
         """
-        
+
         while retries > 0:
             try:
                 retries = retries - 1

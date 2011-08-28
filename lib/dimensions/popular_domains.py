@@ -210,7 +210,7 @@ __all__ = ['PopularDomainsDimension']
 
 class DomainCounterID(StorageID):
     def __init__(self, time_shard, domain):
-        super(DomainCounterID, self).__init__(None)#TODO: make base StorageID to have no params at all, create separate URLID, DomainCounterID, etc
+        super(DomainCounterID, self).__init__()
         self.time_shard = time_shard
         self.domain = domain
 
@@ -223,7 +223,7 @@ class DomainCounterID(StorageID):
 
 class GridLevelID(StorageID):
     def __init__(self, time_shard, grid_level):
-        super(GridLevelID, self).__init__(None)#TODO: make base StorageID to have no params at all, create separate URLID, DomainCounterID, etc
+        super(GridLevelID, self).__init__()
         self.time_shard = time_shard
         self.grid_level = grid_level
 
