@@ -207,6 +207,30 @@ class SDBStorage(Storage):
         # Return
         return changes # re-fetch?
 
+    def append(self, id, value, retries=1):
+        field = 'value'
+        def try_append(item):
+            return {field: unicode(item.get(field, '')) + unicode(value)}
+        return self.update(id, try_append, retries=retries, field=field)[field]
+
+    def prepend(self, id, value, retries=1):
+        field = 'value'
+        def try_prepend(item):
+            return {field: unicode(value) + unicode(item.get(field, ''))}
+        return self.update(id, try_prepend, retries=retries, field=field)[field]
+
+    def increment(self, id, step, retries=1):
+        field = 'value'
+        def try_increment(item):
+            return {field: int(item.get(field, 0)) + int(step)}
+        return self.update(id, try_increment, retries=retries, field=field)[field]
+
+    def decrement(self, id, step, retries=1):
+        field = 'value'
+        def try_decrement(item):
+            return {field: int(item.get(field, 0)) - int(step)}
+        return self.update(id, try_decrement, retries=retries, field=field)[field]
+
     def _split(self, value):
         """
         Prepares the item for storage by splitting long attributes into pieces

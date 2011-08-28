@@ -61,12 +61,24 @@ class WrappedStorage(Storage):
     def replace(self, id, fn, retries=1, field=None):
         return self.storage.replace(self._wrap_id(id), fn, retries=retries, field=field)
     
+    def append(self, id, value, retries=1):
+        return self.storage.append(self._wrap_id(id), value, retries=retries)
+
+    def prepend(self, id, value, retries=1):
+        return self.storage.prepend(self._wrap_id(id), value, retries=retries)
+
+    def increment(self, id, step, retries=1):
+        return self.storage.increment(self._wrap_id(id), retries=retries)
+
+    def decrement(self, id, step, retries=1):
+        return self.storage.decrement(self._wrap_id(id), retries=retries)
+
     def _wrap_id(self, id):
         """
         Wraps the id to contain extended information about the host of the item being accessed.
         See the description of WrappedID class for more details on how this works.
         """
-        if isinstance(id, (basestring, WrappedID)):
+        if isinstance(id, (int, basestring, StorageID)):
             return WrappedID(id=id, host=self.host)
         else:
             return [self._wrap_id(i) for i in id]

@@ -149,6 +149,19 @@ class Storage(object):
         """
         return self.repeat(functools.partial(self.try_replace, id, fn, field), retries=retries)
 
+    def append(self, id, value, retries=1):
+        raise NotImplementedError()
+
+    def prepend(self, id, value, retries=1):
+        raise NotImplementedError()
+
+    def increment(self, id, step, retries=1):
+        raise NotImplementedError()
+
+    def decrement(self, id, step, retries=1):
+        raise NotImplementedError()
+
+    
     def try_create(self, factory):
         raise NotImplementedError()
 
