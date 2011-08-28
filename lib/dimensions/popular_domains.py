@@ -242,9 +242,10 @@ class PopularDomainsDimension(Dimension):
     For the implementation details, terminology and algorithms see module description.
     """
 
-    GRID_LEVEL_THRESHOLDS = [0,5,10,20,30,40,50,100,200,300,400,500,1000,2000,3000,4000,5000,10000]
-#    GRID_LEVEL_THRESHOLDS = [10, 20, 30, 40, 50]
-    TIME_SHARD_DURATION = datetime.timedelta(seconds=12*60*60) # 12 hrs
+    GRID_LEVEL_THRESHOLDS = [1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 100, 200] # low-load
+#    GRID_LEVEL_THRESHOLDS = [10, 20, 30, 40, 50, 100, 200, 300, 400, 500] # mid-load
+#    GRID_LEVEL_THRESHOLDS = [50, 100, 150, 200, 300, 400, 500, 1000, 2000] # high-load
+    TIME_SHARD_DURATION = datetime.timedelta(seconds=12*60*60) # 24 hrs
 
     def __init__(self, url_domain_counter_storage, grid_level_counter_storage, grid_level_domains_storage):
         super(PopularDomainsDimension, self).__init__()
@@ -270,7 +271,7 @@ class PopularDomainsDimension(Dimension):
         # Re-arrange the domain to next level, if necessary.
         # Ignore all counter before the first grid level (bottleneck solution - see module description).
         # Two atomic operations, but they are not transactional. So the most important one goes first.
-        write_now = current_level != initial_level and current_level > 0
+        write_now = current_level is not None and current_level != initial_level
         if write_now:
             level_id = GridLevelID(time_shard=time_shard, grid_level=current_level)
             self.grid_level_domains_storage.append(level_id, ':::'+url_domain, retries=3)
@@ -352,12 +353,12 @@ class PopularDomainsDimension(Dimension):
         #IDEA: grid levels are not required to be sequentially numbered. they can even be strings.
         for index, level in enumerate(self.grid_level_thresholds):
             if value < level:
-                return index
+                return index-1 if index>0 else None
         return len(self.grid_level_thresholds)-1
 
     def _get_all_grid_levels(self):
         #IDEA: grid levels are not required to be sequentially numbered. they can even be strings.
-        return list(xrange(1, len(self.grid_level_thresholds)))
+        return list(xrange(0, len(self.grid_level_thresholds)))
 
     def _create_all_grid_level_ids(self, grid_levels, time_shards):
         return [GridLevelID(time_shard=time_shard, grid_level=grid_level) for grid_level in grid_levels for time_shard in
@@ -376,13 +377,22 @@ class PopularDomainsDimension(Dimension):
         # Decide which levels are really necessary for retrieving at least M domains per time shard.
         top_grid_level_ids = []
         for time_shard in struct.keys():
-            # Try to find the best grid level within time shard. Use the latest (lowest) one if none are enough.
-            time_shard_best_grid_level_id = None
+#            #Try to find the best grid level within time shard. Use the latest (lowest) one if none are enough.
+#            time_shard_best_grid_level_id = None
+#            for grid_level in sorted(struct[time_shard].keys(), reverse=True):#??? what if levels (keys) are strings?
+#                time_shard_best_grid_level_id = GridLevelID(time_shard=time_shard, grid_level=grid_level)
+#                if struct[time_shard][grid_level] >= domains_per_time_shard:
+#                    break
+#            top_grid_level_ids.append(time_shard_best_grid_level_id)
+
+            domains_in_this_time_shard = 0
             for grid_level in sorted(struct[time_shard].keys(), reverse=True):#??? what if levels (keys) are strings?
-                time_shard_best_grid_level_id = GridLevelID(time_shard=time_shard, grid_level=grid_level)
-                if struct[time_shard][grid_level] >= domains_per_time_shard:
+                domains_in_this_grid_level = struct[time_shard][grid_level]
+                domains_in_this_time_shard += domains_in_this_grid_level
+                if domains_in_this_grid_level > 0:
+                    top_grid_level_ids.append(GridLevelID(time_shard=time_shard, grid_level=grid_level))
+                if domains_in_this_time_shard >= domains_per_time_shard:
                     break
-            top_grid_level_ids.append(time_shard_best_grid_level_id)
         return top_grid_level_ids
 
     def _extract_domains_counter_ids(self, grid_level_domains):
