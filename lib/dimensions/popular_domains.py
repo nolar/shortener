@@ -242,18 +242,18 @@ class PopularDomainsDimension(Dimension):
     For the implementation details, terminology and algorithms see module description.
     """
 
-    GRID_LEVEL_THRESHOLDS = [1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 100, 200] # low-load
-#    GRID_LEVEL_THRESHOLDS = [10, 20, 30, 40, 50, 100, 200, 300, 400, 500] # mid-load
-#    GRID_LEVEL_THRESHOLDS = [50, 100, 150, 200, 300, 400, 500, 1000, 2000] # high-load
-    TIME_SHARD_DURATION = datetime.timedelta(seconds=12*60*60) # 24 hrs
+    DEFAULT_GRID_LEVEL_THRESHOLDS = [1, 2, 3, 4, 5, 10, 20, 30, 40, 50, 100, 200] # low-load
+#    DEFAULT_GRID_LEVEL_THRESHOLDS = [10, 20, 30, 40, 50, 100, 200, 300, 400, 500] # mid-load
+#    DEFAULT_GRID_LEVEL_THRESHOLDS = [50, 100, 150, 200, 300, 400, 500, 1000, 2000] # high-load
+    DEFAULT_TIME_SHARD_DURATION = datetime.timedelta(days=1)
 
-    def __init__(self, url_domain_counter_storage, grid_level_counter_storage, grid_level_domains_storage):
+    def __init__(self, url_domain_counter_storage, grid_level_counter_storage, grid_level_domains_storage, time_shard_duration=None, grid_level_thresholds=None):
         super(PopularDomainsDimension, self).__init__()
         self.url_domain_counter_storage = url_domain_counter_storage
         self.grid_level_counter_storage = grid_level_counter_storage
         self.grid_level_domains_storage = grid_level_domains_storage
-        self.grid_level_thresholds = self.GRID_LEVEL_THRESHOLDS#??? constructor param with default value?
-        self.time_shard_duration = self.TIME_SHARD_DURATION#??? constructor param with default value?
+        self.grid_level_thresholds = grid_level_thresholds or self.DEFAULT_GRID_LEVEL_THRESHOLDS#??? constructor param with default value?
+        self.time_shard_duration = time_shard_duration or self.DEFAULT_TIME_SHARD_DURATION#??? constructor param with default value?
 
     def register(self, url):
         # Pre-calculate and extract key parameters of the algorithm.
