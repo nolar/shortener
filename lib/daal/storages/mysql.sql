@@ -1,5 +1,4 @@
 SET NAMES utf8;
-USE `shortener`;
 
 /*
  * Main storage for forward resolution of shortened urls to originals targets, plus meta info.

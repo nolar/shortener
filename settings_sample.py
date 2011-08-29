@@ -144,5 +144,12 @@ LOGGING = {
     }
 }
 
+# For v1/setup.py & shortener library.
 AWS_ACCESS_KEY = '...'
 AWS_SECRET_KEY = '...'
+
+# For v1/setup.py & shortener library.
+MYSQL_HOSTNAME = ''
+MYSQL_USERNAME = ''
+MYSQL_PASSWORD = ''
+MYSQL_DATABASE = ''

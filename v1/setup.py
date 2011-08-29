@@ -50,34 +50,33 @@ class AWSNotifier(Notifier):
 
 
 class MysqlShortener(Shortener):
-    def __init__(self, access_key, secret_key, host):
+    def __init__(self, hostname, username, password, database, host):
         super(MysqlShortener, self).__init__(
-            storage   = WrappedStorage(MysqlStorage('urls'), host=host),
-            registry  = MysqlAnalytics(access_key, secret_key, host),
+            storage   = WrappedStorage(MysqlStorage(hostname, username, password, database, 'urls'), host=host),
+            registry  = MysqlAnalytics(hostname, username, password, database, host),
 #            registry  = Blackhole(),
-            generator = MysqlGenerator(access_key, secret_key, host),
+            generator = MysqlGenerator(hostname, username, password, database, host),
             )
 
 class MysqlGenerator(CentralizedGenerator):
-    def __init__(self, access_key, secret_key, host):
+    def __init__(self, hostname, username, password, database, host):
         super(MysqlGenerator, self).__init__(
-            storage = WrappedStorage(MysqlStorage('sequences'), host=host),
+            storage = WrappedStorage(MysqlStorage(hostname, username, password, database, 'sequences'), host=host),
             prohibit=r'(^v\d+/) | (^/) | (//)',
         )
 
 class MysqlAnalytics(Analytics):
-    def __init__(self, access_key, secret_key, host):
+    def __init__(self, hostname, username, password, database, host):
         super(MysqlAnalytics, self).__init__(
-            recent_targets  =  RecentTargetsDimension(WrappedStorage(MysqlStorage('last_urls'  ), host=host)),
-#            popular_domains = PopularDomainsDimension(WrappedStorage(MysqlStorage('top_domains'), host=host)),
+            recent_targets = RecentTargetsDimension(
+                storage = WrappedStorage(MysqlStorage(hostname, username, password, database, 'last_urls'), host=host),
+            ),
+            popular_domains = PopularDomainsDimension(
+                url_domain_counter_storage = WrappedStorage(MysqlStorage(hostname, username, password, database, 'popular_domain_counters'    ), host=host),
+                grid_level_counter_storage = WrappedStorage(MysqlStorage(hostname, username, password, database, 'popular_grid_level_counters'), host=host),
+                grid_level_domains_storage = WrappedStorage(MysqlStorage(hostname, username, password, database, 'popular_grid_level_domains' ), host=host),
+            ),
         )
-
-class MysqlNotifier(Notifier):
-    def __init__(self, access_key, secret_key, host):
-        super(MysqlNotifier, self).__init__(
-            queue = SQSQueue(access_key, secret_key, name='urls'),
-        )
-
 
 
 def get_host(request):
@@ -87,15 +86,30 @@ def get_host(request):
     host = host[:-3] if host.endswith(':80') else host
     return host
 
+#def make_shortener(request):
+#    return AWSShortener(host=get_host(request),
+#                        access_key = settings.AWS_ACCESS_KEY,
+#                        secret_key = settings.AWS_SECRET_KEY,
+#                        )
+#
+#def make_analytics(request):
+#    return AWSAnalytics(host=get_host(request),
+#                        access_key = settings.AWS_ACCESS_KEY,
+#                        secret_key = settings.AWS_SECRET_KEY,
+#                        )
+
 def make_shortener(request):
-    return AWSShortener(host=get_host(request),
-                        access_key = settings.AWS_ACCESS_KEY,
-                        secret_key = settings.AWS_SECRET_KEY,
-                        )
+    return MysqlShortener(host=get_host(request),
+                          hostname=settings.MYSQL_HOSTNAME,
+                          username=settings.MYSQL_USERNAME,
+                          password=settings.MYSQL_PASSWORD,
+                          database=settings.MYSQL_DATABASE,
+    )
 
 def make_analytics(request):
-    return AWSAnalytics(host=get_host(request),
-                    access_key = settings.AWS_ACCESS_KEY,
-                    secret_key = settings.AWS_SECRET_KEY,
-                    )
-
+    return MysqlAnalytics(host=get_host(request),
+                          hostname=settings.MYSQL_HOSTNAME,
+                          username=settings.MYSQL_USERNAME,
+                          password=settings.MYSQL_PASSWORD,
+                          database=settings.MYSQL_DATABASE,
+    )
