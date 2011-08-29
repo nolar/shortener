@@ -34,7 +34,7 @@ class RecentTargetsDimension(Dimension):
         """
 
         def gen_item():
-            timestamp = int(time.time() * 1000000)
+            timestamp = int(time.time())
             item = dict(shortened_url)
             item['timestamp'] = timestamp
             return item
