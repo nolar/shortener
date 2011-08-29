@@ -11,23 +11,23 @@ Yet another web shortener, which is going to save internet traffic costs and wor
   de-centralized counters and storages, key-value storages, background analytics processing, etc.
 * Stores its data in SimpleDB or MySQL (already works), or virtually any key-value capable storage.
 * Core features are implemented as standalone Python 2.7 library (2.6 is okay too).
-* Web entry points are made with Django 1.3.
+  Django 1.3 is used only for web/API entry points and response rendering.
 
 
 ## DEPLOYMENT
 
 It is deployed at
 
-  http://yaws.ws/
+* http://yaws.ws/
 
 and all possible sub-domains:
 
-  http://a.yaws.ws/
-  http://9.yaws.ws/
-  http://i.wanna.start.with.empty.yaws.ws/
-  ...
+* http://a.yaws.ws/
+* http://9.yaws.ws/
+* http://i.wanna.start.with.empty.yaws.ws/
+* ...
 
-Just go and try. And remember it is in very prototype stage, so error handling
+Just go and try it. And remember it is in very prototype stage, so error handling
 may be weak (it just dies with unified error template), and data may be lost.
 
 
