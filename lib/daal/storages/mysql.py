@@ -94,6 +94,7 @@ class MysqlStorage(Storage):
         """
 
         self._connect()
+        if not ids: return []
 
         where, values = self._ids_to_sql(ids)
         query = "SELECT * FROM `%s` WHERE %s" % (self.name, where) #!!! escape table name
@@ -101,8 +102,6 @@ class MysqlStorage(Storage):
         cursor = self.connection.cursor(MySQLdb.cursors.DictCursor)
         cursor.execute(query, values)
         rows = cursor.fetchall()
-        if len(rows) < 1:
-            raise StorageItemAbsentError("The item '%s' is not found." % id)
         items = rows
 
         #??? factory? on Storage level?
