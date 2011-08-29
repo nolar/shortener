@@ -7,9 +7,9 @@ SET NAMES utf8;
  */
 DROP TABLE IF EXISTS `urls`;
 CREATE TABLE `urls` (
-    `host`              varchar(100) not null,
-    `id`                varchar(100) not null,
-    `code`              varchar(100) not null,
+    `host`              varchar(100) character set 'utf8' collate 'utf8_bin' not null,
+    `id`                varchar(100) character set 'utf8' collate 'utf8_bin' not null,
+    `code`              varchar(100) character set 'utf8' collate 'utf8_bin' not null,
     `url`               longtext not null,
     `created_ts`        integer unsigned default null,
     `remote_addr`       varchar(45) default null, -- beware of IPv6, see http://stackoverflow.com/questions/166132/maximum-length-of-the-textual-representation-of-an-ipv6-address
@@ -35,8 +35,8 @@ ALTER TABLE `last_urls`
  */
 DROP TABLE IF EXISTS `sequences`;
 CREATE TABLE `sequences` (
-    `host`              varchar(100) not null,
-    `id`                varchar(100) not null,
+    `host`              varchar(100) character set 'utf8' collate 'utf8_bin' not null,
+    `id`                varchar(100) character set 'utf8' collate 'utf8_bin' not null,
     `value`             varchar(100) not null,
     primary key (`host`, `id`)
 ) engine=innodb;
@@ -47,9 +47,9 @@ CREATE TABLE `sequences` (
  */
 DROP TABLE IF EXISTS `popular_domain_counters`;
 CREATE TABLE `popular_domain_counters` (
-    `host`              varchar(100) not null,
+    `host`              varchar(100) character set 'utf8' collate 'utf8_bin' not null,
     `time_shard`        integer unsigned not null,
-    `domain`            varchar(100) not null, -- why 100 chars? much more!
+    `domain`            varchar(100) character set 'utf8' collate 'utf8_bin' not null, -- why 100 chars??? much more!
     `value`             integer unsigned not null default 0,
     primary key (`host`, `time_shard`, `domain`)
 ) engine=innodb;
@@ -60,7 +60,7 @@ CREATE TABLE `popular_domain_counters` (
  */
 DROP TABLE IF EXISTS `popular_grid_level_counters`;
 CREATE TABLE `popular_grid_level_counters` (
-    `host`              varchar(100) not null,
+    `host`              varchar(100) character set 'utf8' collate 'utf8_bin' not null,
     `time_shard`        integer unsigned not null,
     `grid_level`        tinyint unsigned not null, -- having more than 255 grid levels is really a bad idea, even 25 is too many.
     `value`             integer unsigned not null default 0,
