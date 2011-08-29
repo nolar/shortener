@@ -7,7 +7,7 @@ UPPERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 DIGITS = '0123456789'
 SPECIAL = '$-_.+!*\'(),' # these characters are safe for HTTP schema, thoug may be it recognized by highlighters.
 SCHEMAS = ';&/:=@' # these characters in HTTP schema may be risky, since they are part of the schema.
-ALPHABET = ''.join([LOWERS, UPPERS, DIGITS, SPECIAL, SCHEMAS])
+ALPHABET = ''.join([LOWERS, UPPERS, DIGITS, SPECIAL])
 
 
 class DepletedError(Exception): pass
@@ -99,8 +99,10 @@ class Sequence(object):
             if old_value:
                 pos = self.letters.find(old_value[-1])
                 if pos == -1:
-                    raise SequenceLettersError("Unsupported character in the initial value of the sequence.")
-                elif pos < len(self.letters) - 1:
+#                    raise SequenceLettersError("Unsupported character in the initial value of the sequence.")
+                    pos = len(self.letters) - 1
+
+                if pos < len(self.letters) - 1:
                     result = old_value[:-1] + self.letters[pos+1]
                 else:
                     result = self.increment(old_value[:-1] or self.letters[0]) + self.letters[0]
