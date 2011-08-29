@@ -1,33 +1,34 @@
 ## ABOUT
 
-Yet another URL shortener, which is going to save internet traffic costs and world-wide energy consumption.
+Yet another web shortener, which is going to save internet traffic costs and world energy consumption.
 
 
 ## FEATURES
 
 * Multi-domain hosted, with each domain isolated from the others, but sharing the infrastructure.
-* HTML and JSON APIs (HTML is for quick try, see below).
-* Supposed to handle really heavy traffic: with distributed ID generators (not completely implemented),
-  de-centralized counter and storages, background analytics processing, etc.
-* Depends on Amazon Web Services (AWS), SimpleDB and SQS in particular.
-* Coded with Python 2.7 (2.6 is okay too), Django 1.3.
+* HTML and JSON APIs (HTML is very useful for quick human-friendly experiments, see below).
+* Supposed to handle really heavy traffic: with distributed ID generators (not implemented),
+  de-centralized counters and storages, key-value storages, background analytics processing, etc.
+* Stores its data in SimpleDB or MySQL (already works), or virtually any key-value capable storage.
+* Core features are implemented as standalone Python 2.7 library (2.6 is okay too).
+* Web entry points are made with Django 1.3.
 
 
-## DEPLOYED
+## DEPLOYMENT
 
 It is deployed at
 
-  http://shortener.forge.nolar.info/
+  http://yaws.ws/
 
-and all possible subdomains:
+and all possible sub-domains:
 
-  http://abc.shortener.forge.nolar.info/
-  http://def.shortener.forge.nolar.info/
-  http://123.shortener.forge.nolar.info/
+  http://a.yaws.ws/
+  http://9.yaws.ws/
+  http://i.wanna.start.with.empty.yaws.ws/
   ...
 
 Just go and try. And remember it is in very prototype stage, so error handling
-may be weak (it just dies with unified error template).
+may be weak (it just dies with unified error template), and data may be lost.
 
 
 ## HISTORY
@@ -39,5 +40,7 @@ But I'm so easily carried away with interesting tasks (not the first time)...
 Nevertheless, since it has grown to a working deployable project, here is the code
 shared. You are free to join, to fork, to have fun.
 
-PS: "Forge" is a folder where I work on proof-of-concept scripts and projects.
-Now it is also a domain to host them for public. Full list is NOT available.
+
+## CREDITS
+
+Author: Sergey Vasilyev <nolar@nolar.info>, http://nolar.info/
