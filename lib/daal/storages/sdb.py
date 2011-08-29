@@ -226,10 +226,7 @@ class SDBStorage(Storage):
         return self.update(id, try_increment, retries=retries, field=field)[field]
 
     def decrement(self, id, step, retries=1):
-        field = 'value'
-        def try_decrement(item):
-            return {field: int(item.get(field, 0)) - int(step)}
-        return self.update(id, try_decrement, retries=retries, field=field)[field]
+        return self.increment(id, -step, retries=retries)
 
     def _split(self, value):
         """
