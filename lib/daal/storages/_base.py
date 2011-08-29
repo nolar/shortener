@@ -40,7 +40,7 @@ class StorageID(object):
     def __iter__(self):
         if self.id is None:
             raise NotImplementedError()
-        elif isinstance(self.id, StorageID):
+        elif isinstance(self.id, (dict, StorageID)):
             return iter(self.id)
         else:
             return iter([('id', unicode(self.id))])
