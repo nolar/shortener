@@ -71,7 +71,7 @@ class Shortener(object):
                 return URL(
                     code = code,
                     url = url,
-                    created_ts = time.time(),
+                    created_ts = int(time.time()),
                     remote_addr = remote_addr,
                     remote_port = remote_port,
                 )
