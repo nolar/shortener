@@ -5,13 +5,13 @@ Yet another web shortener, which is going to save internet traffic costs and wor
 
 ## FEATURES
 
-* Multi-domain hosted, with each domain isolated from the others, but sharing the infrastructure.
-* HTML and JSON APIs (HTML is very useful for quick human-friendly experiments, see below).
-* Supposed to handle really heavy traffic: with distributed ID generators (not implemented),
-  de-centralized counters and storages, key-value storages, background analytics processing, etc.
+* Multi-domain hosted. Each domain isolated from the others, but sharing the infrastructure.
+* HTML and JSON APIs. HTML is very useful for quick human-friendly experiments, see below.
+* Scalable. Everything is distributed & decentralized (some parts are not ready yet).
+* Fast. Shortens in 10-20 ms, resolves and redirects in 1-2 ms (with MySQL).
 * Stores its data in SimpleDB or MySQL (already works), or virtually any key-value capable storage.
-* Core features are implemented as standalone Python 2.7 library (2.6 is okay too).
-  Django 1.3 is used only for web/API entry points and response rendering.
+* Implemented as standalone Python 2.7 library (2.6 is okay too).
+* Django 1.3 is used for API entry points and response rendering.
 
 
 ## DEPLOYMENT
