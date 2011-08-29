@@ -1,4 +1,6 @@
 # coding: utf-8
+#TODO: explicit micro-transatctions (we have commits but have no begins now). preferable using "with".
+
 from ..item import Item
 from ._base import Storage, StorageID
 from ._base import StorageExpectationError, StorageItemAbsentError, StorageUniquenessError
@@ -16,10 +18,14 @@ class MysqlStorage(Storage):
     * Others to come.
     """
 
-    def __init__(self, name):
+    def __init__(self, hostname, username, password, database, name):
         super(MysqlStorage, self).__init__()
-        self.connected = False
         self.connection = None
+        self.connected = False
+        self.hostname = hostname
+        self.username = username
+        self.password = password
+        self.database = database
         self.name = name
 
     def store(self, id, value, expect=None, unique=None):
@@ -62,11 +68,9 @@ class MysqlStorage(Storage):
         otherwise id is treated as a sequence of ids and all of them are fetched.
         Actual fetch goes in batches of 20 items per requests (SimpleDB limitation).
         """
-
         self._connect()
 
-        values = dict(StorageID(id))
-        where = '(%s)' % self._id_to_where(id)
+        where, values = self._ids_to_sql([id])
         query = "SELECT * FROM `%s` WHERE %s" % (self.name, where) #!!! escape table name
 
         cursor = self.connection.cursor(MySQLdb.cursors.DictCursor)
@@ -91,11 +95,11 @@ class MysqlStorage(Storage):
 
         self._connect()
 
-        where = 'OR'.join(['(%s)' % self._id_to_where(id) for id in ids])
+        where, values = self._ids_to_sql(ids)
         query = "SELECT * FROM `%s` WHERE %s" % (self.name, where) #!!! escape table name
 
         cursor = self.connection.cursor(MySQLdb.cursors.DictCursor)
-        cursor.execute(query)
+        cursor.execute(query, values)
         rows = cursor.fetchall()
         if len(rows) < 1:
             raise StorageItemAbsentError("The item '%s' is not found." % id)
@@ -151,7 +155,7 @@ class MysqlStorage(Storage):
         item.update(pk)
 
         # Ensure the item is absent using an attribute that always exists.
-#        pk_where = '(%s)' % self._id_to_where(item['id'])
+#        pk_where, pk_values = self._ids_to_sql([item['id']])
 
         # Store the values to the physical storage if necessary.
         assignments = ','.join(['%s=%%(%s)s' % (field, field) for field in item.keys()])
@@ -171,6 +175,7 @@ class MysqlStorage(Storage):
         """
 
         self._connect()
+        pk = dict(StorageID(id))
 
         # Try to fetch the item's values from the physical storage.
         # Fallback to empty list of values if the item does not exist.
@@ -178,19 +183,24 @@ class MysqlStorage(Storage):
             item = self.fetch(id)
         except StorageItemAbsentError, e:
             item = Item() # what if it is of another type???
+            item.update(pk)
 
         # Ensure the item is absent using an attribute that always exists.
-        pk_where = '(%s)' % self._id_to_where(id)
+#        pk_where, pk_values = self._ids_to_sql([id]) # is it still used???
 
         # Get the values to be updated. Store them to the physical storage if necessary.
         changes = fn(item)
         changes.update(dict(StorageID(id)))
+        values = dict(item, **changes)
+        #!!! separate and make it obvious which fields are for pk, and which are for values. merge them only for the query.
+
+        # Build SQL query to INSERT or UPDATE depending on absence of existence of the item.
+        assignments = ','.join(['%s=%%(%s)s' % (field, field) for field in changes.keys()])
+        query = "INSERT INTO %s SET %s ON DUPLICATE KEY UPDATE %s" % (self.name, assignments, assignments)
 
         # Store the values to the physical storage if necessary.
-        assignments = ','.join(['%s=%%(%s)s' % (field, field) for field in changes.keys()])
-        query = "REPLACE INTO %s SET %s" % (self.name, assignments)
         cursor = self.connection.cursor(MySQLdb.cursors.DictCursor)
-        cursor.execute(query, changes)
+        cursor.execute(query, values)
         self.connection.commit()
 
         # Return
@@ -213,25 +223,129 @@ class MysqlStorage(Storage):
             raise # just to make it very obvious that we pass it through.
 
         # Ensure the item is absent using an attribute that always exists.
-        pk_where = '(%s)' % self._id_to_where(id)
+        pk_where, pk_values = self._ids_to_sql([id])
 
         # Get the values to be updated. Store them to the physical storage if necessary.
         changes = fn(item)
+        #!!!TODO: I guess here is an error, since pk_values are not merged into changes. But seems we do not use replace() at all.
 
-        # Store the values to the physical storage if necessary.
+        # Build SQL query to update an item if it exists.
         assignments = ','.join(['%s=%%(%s)s' % (field, field) for field in changes.keys()])
         query = "UPDATE %s SET %s WHERE %s" % (self.name, assignments, pk_where)
+
+        # Store the values to the physical storage if necessary.
         cursor = self.connection.cursor(MySQLdb.cursors.DictCursor)
         cursor.execute(query, changes)
+        #!!!todo: raise StorageItemAbsentError() if  affected_rows == 0
         self.connection.commit()
 
         # Return
         return changes # re-fetch?
 
-    def _id_to_where(self, id):
+    def append(self, id, value, retries=1):
+        #NB: since we use SQL row locks, there is no need to retries.
+        #NB: value field must be declared as NOT NULL DEFAULT ''.
+        #TODO: we can remove that requirement for DEFAULT value, but have to rewrite all this dict manipulations.
+
+        value_field = 'value'
+        self._connect()
+
+        # Execute the query and aquire a row lock on the counter.
         pk = dict(StorageID(id))
-        where = ' AND '.join(["%s = %%(%s)s" % (field, field) for field in pk.keys()])
-        return where
+        values = dict(pk, value=value)
+        assignments = ','.join(['%s=%%(%s)s' % (field, field) for field in pk.keys()]
+                             + ['%s=concat(%s, %%(%s)s)' % (value_field, value_field, value_field)])
+        query = "INSERT INTO %s SET %s ON DUPLICATE KEY UPDATE %s" % (self.name, assignments, assignments)
+        cursor = self.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.execute(query, values)
+
+        # Fetch the value while it is locked - no one will change it since we updates and till we committed.
+        value = self.fetch(id)[value_field]
+
+        # Commit and release the row lock.
+        self.connection.commit()
+
+        # Return
+        return value
+
+    def prepend(self, id, value, retries=1):
+        raise NotImplementedError()#!!!todo later
+
+    def increment(self, id, step, retries=1):
+        #NB: since we use SQL row locks, there is no need to retries.
+        #NB: value field must be declared as NOT NULL DEFAULT 0.
+        #TODO: we can remove that requirement for DEFAULT value, but have to rewrite all this dict manipulations.
+
+        value_field = 'value'
+        self._connect()
+
+        pk = dict(StorageID(id))
+        assignments = ','.join(['%s=%%(%s)s' % (field, field) for field in pk.keys()] + ['%s=%s+(%d)' % (value_field, value_field, int(step))])
+        query = "INSERT INTO %s SET %s ON DUPLICATE KEY UPDATE %s" % (self.name, assignments, assignments)
+
+        # Execute the query and aquire a row lock on the counter.
+        cursor = self.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.execute(query, pk)
+
+        # Fetch the value while it is locked - no one will change it since we updates and till we committed.
+        value = self.fetch(id)[value_field]
+
+        # Commit and release the row lock.
+        self.connection.commit()
+
+        # Return
+        return value
+
+    def decrement(self, id, step, retries=1):
+        # No special support or optimizations for decrement operation.
+        return self.increment(id, -step, retries=retries)
+
+    def _metaescape(self, name):
+        """
+        Escapes field and table names (and any other SQL entities) for use in queries.
+        Does not escape data values with this! Use parameter binding instead!
+        """
+        return '`%s`' % unicode(meta).replace('`', '``')
+
+    def _ids_to_sql(self, ids):
+        """
+        Converts few storage IDs to SQL WHERE clause and dict with values for binding.
+        List of ids must be non-empty (it's better to catch this situation at higher level).
+
+        The clause returned is build as short as it is possible in this implementation.
+        But it resolves all conflicts with the same-named fields with differently values
+        by use of automatically generated reference names instead of just field names.
+
+        It also optimizes the number of values by re-using same references for same values.
+        This is especially useful when you have dozens of ids (100+), and in most of them
+        have fields with equal or repeating values.
+
+        E.g., if we have ids {a=10,b=20} and {a=10,b=30}, it will return these WHERE clause and values:
+            clause = (a=%(a1)s and b=%(b1)s) or (a=%(a1)s and b=%(b2)s)
+            values = {a1=10, b1=20, b2=30}
+        Note that %(a1)s parameter is used for both expressions, since its values is the same.
+        """
+        wheres = []
+        values = []
+        references = {} # [field][value] -> key in values
+        for index, id in enumerate(ids):
+            # Build per-id expressions.
+            id_wheres = []
+            id_values = []
+            for field, value in dict(StorageID(id)).items():
+                # First, check if this field&value pair exists already, and create it if it does not yet.
+                reference = references.setdefault(field, {}).setdefault(value, '%s%s' % (field, index))
+
+                # Then, add the field&value expression to lists for query building.
+                id_wheres.append((field, reference))
+                id_values.append((reference, value))
+
+            # Merge per-id expressions into global list of expressions.
+            wheres.append(id_wheres)
+            values.extend(id_values)
+        clause = '(%s)' % 'OR'.join(['(%s)' % ' AND '.join(['%s=%%(%s)s' % (field, reference) for field, reference in id_wheres]) for id_wheres in wheres])
+        values = dict(values)
+        return clause, values
 
     def _connect(self):
         """
@@ -239,9 +353,9 @@ class MysqlStorage(Storage):
         If already connected, does nothing.
         """
         if not self.connected:
-            self.connection = MySQLdb.connect(host = "localhost",
-                                     user = "root",
-                                     passwd = "",
-                                     db = "shortener")
+            self.connection = MySQLdb.connect(host = self.hostname,
+                                     user = self.username,
+                                     passwd = self.password,
+                                     db = self.database)
             self.connected = True
         return self
